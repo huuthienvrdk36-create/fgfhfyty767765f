@@ -1,57 +1,105 @@
 # Auto Platform - PRD
 
 ## Original Problem Statement
-Clone the provided Auto Platform project (Uber for Services marketplace) and implement:
-1. City-Level Control System (Zones, GeoOps)
-2. Automated Marketplace (Rules Engine)
-3. Self-Learning Marketplace (KPI-driven feedback loops)
-4. Complete audit of admin panel + fix critical gaps
+Clone the Auto Platform project (Uber for Services marketplace) from GitHub and implement P1 admin panel features:
+1. Audit Log UI - history of all system actions
+2. Global Search (Cmd+K) - instant search across all entities
+3. Notifications UI - bulk notifications management with templates
+4. Reports & Export - KPIs, metrics, CSV export
 
 ## Architecture
 - **Backend**: NestJS (port 3001) proxied via FastAPI (port 8001)
-- **Admin Panel**: Vite React (port 3002), served via FastAPI at /api/admin-panel/
-- **Frontend**: React (port 3000)
-- **DB**: MongoDB
+- **Admin Panel**: Vite React, served via FastAPI at /api/admin-panel/
+- **Frontend**: React (port 3000) - mobile app frontend (not in scope)
+- **Database**: MongoDB (auto_platform)
 
-## Implemented Features
+## Core Requirements (Static)
+- Full-featured marketplace platform for on-demand services
+- Real-time tracking, demand-based pricing, smart matching
+- Complete admin panel for operations management
+- Control layer for marketplace operations
 
-### Phase 1 — Core Platform (DONE)
+## User Personas
+1. **Admin/Operator** - manages marketplace, monitors KPIs, handles disputes
+2. **Provider** - service providers (mechanics, etc.)
+3. **Customer** - end users requesting services
+
+## What's Been Implemented
+
+### P0 — Core Platform (Pre-existing)
 - Auth, Users, Organizations, Bookings, Quotes, Payments, Disputes, Reviews
-- Admin Panel with 17 pages
+- Admin Panel with 17+ pages
 - WebSocket real-time
+- Assignment Engine, Provider Inbox, Expire Engine
+- Live Movement System, Demand Engine
+- Zone Engine (City-Level Control)
+- Marketplace Rules Engine (Self-Balancing)
 
-### Phase 2 — City-Level Control System (DONE)
-- Zones module (backend/src/modules/zones/)
-- Zone KPIs, heatmaps, dead/hot zones
-- GeoOps Page UI
+### P1 — Control Layer (Implemented April 10, 2026)
 
-### Phase 3 — Automated Marketplace (DONE)
-- Rules Engine (marketplace-rules-engine.service.ts)
-- Rule executions, auto-balancing (surge, distribution)
-- MarketControl Page UI
+#### 1. Audit Log UI
+- **Page**: `/audit-log`
+- **Features**:
+  - Full history of all system actions
+  - Filters: actor (ADMIN/SYSTEM/PROVIDER/CUSTOMER), entityType, action, date range
+  - Expandable log entries with old/new values
+  - Pagination
+- **API**: GET `/api/admin/audit-log`
 
-### Phase 4 — Self-Learning Marketplace (DONE)
-- Learning Engine (learning-engine.service.ts)
-- KPI tracking, rule performance scoring
-- Learning tab in MarketControl
+#### 2. Global Search (Cmd+K)
+- **Component**: GlobalSearchModal
+- **Features**:
+  - Keyboard shortcut: Cmd+K (or Ctrl+K)
+  - Instant search across users, providers, bookings, quotes
+  - Search by ID, email, phone, name
+  - Keyboard navigation (↑↓ + Enter)
+  - Direct navigation to entity pages
+- **API**: GET `/api/admin/search?q=query`
 
-### Phase 5 — P0 Admin Panel Fixes (DONE — April 9, 2026)
-1. **Services CRUD** — Real API (categories, services, pricing) replacing mock data
-2. **Quote Distribution UI** — Provider selection panel with checkboxes, search, score display
-3. **Settings → API** — Loads/saves config via GET/POST /api/admin/config
-4. **Organization ↔ Services** — Real services and bookings tabs in org modal
-5. **Provider real data** — Removed all Math.random() from ProvidersPage and ProviderDetailPage
+#### 3. Notifications UI
+- **Page**: `/notifications`
+- **Tabs**:
+  - Send: bulk notification form with filters (tiers, score, online status)
+  - Templates: create/manage notification templates
+  - History: sent notifications log
+- **APIs**: 
+  - GET `/api/admin/notifications/templates`
+  - POST `/api/admin/notifications/templates`
+  - POST `/api/admin/notifications/bulk`
+  - GET `/api/admin/notifications/history`
 
-## Pending Tasks
+#### 4. Reports & Export
+- **Page**: `/reports`
+- **Report Types**:
+  - KPIs: GMV, revenue, bookings, completion rate
+  - Revenue: with charts, grouping by day/week/month
+  - Bookings: status distribution, completion/cancel rates
+  - Providers: tier distribution, active rate
+  - Conversion: funnel (quotes → responses → bookings)
+- **Export**: CSV download for users, organizations, bookings, payments, quotes
+- **APIs**:
+  - GET `/api/admin/reports/:type`
+  - GET `/api/admin/export/:entity`
 
-### P1 — Professional Features
-- Audit Log UI (API exists, UI missing)
-- Global Search UI (API exists, UI missing)
-- Notifications UI (API exists, UI missing)
-- Reports & Export UI (API exists, UI missing)
+## API Endpoints Summary (New)
+- GET `/api/admin/audit-log` - audit logs with filters
+- GET `/api/admin/search` - global search
+- GET `/api/admin/notifications/templates` - notification templates
+- POST `/api/admin/notifications/templates` - create template
+- POST `/api/admin/notifications/bulk` - send bulk notification
+- GET `/api/admin/notifications/history` - sent notifications
+- GET `/api/admin/reports/:type` - report data
+- GET `/api/admin/export/:entity` - CSV export
+
+## DB Models (New)
+- `audit_logs`: userId, actor, action, entityType, entityId, oldValue, newValue, metadata
+- `notification_templates`: code, title, message, category, channels, variables
+- `bulk_notifications`: sentBy, title, message, filters, recipientCount, status
+
+## Pending Tasks (Backlog)
 
 ### P2 — Strength Features
-- Map modes: conversion/risk/coverage (currently stubs)
+- Map modes: conversion/risk/coverage views
 - Disputes evidence flow
 - Payment actions (refund/retry)
 - Push integration for automated rules
@@ -62,21 +110,11 @@ Clone the provided Auto Platform project (Uber for Services marketplace) and imp
 - Prediction engine, demand forecast
 - Anomaly detection, smart expansion
 - Economic Model: monetization, margin control, subsidies
-- A/B testing runner
+- A/B testing runner (Feature Flags + Experiments)
 - Parameter auto-tuning, zone-level tuning
 
-## Key API Endpoints
-- GET/POST /api/services, /api/services/categories
-- PUT/DELETE /api/services/:id, /api/services/categories/:id
-- GET /api/admin/config, POST /api/admin/config
-- GET /api/admin/zones, /api/admin/zones/kpis
-- GET /api/admin/marketplace-rules
-- GET /api/admin/marketplace-rules/learning/stats
-- POST /api/admin/marketplace-rules/trigger/:zoneId
-- GET /api/provider-services/organization/:orgId
-
-## DB Models
-- zones, marketplace_rules, rule_executions, market_kpis
-- ServiceCategory: {name, slug, description, icon, sortOrder, status}
-- Service: {categoryId, name, slug, description, priceMin, priceMax, durationMin, durationMax, requiresDiagnostics, status}
-- PlatformConfig: {key, value, description, isSecret}
+## Next Action Items
+1. Add more sample data to demonstrate audit log functionality
+2. Implement push notification delivery (currently logged only)
+3. Add chart visualizations to more report types
+4. Implement Feature Flags UI with A/B testing capabilities
