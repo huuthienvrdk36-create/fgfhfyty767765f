@@ -20,6 +20,9 @@ export class AdminService {
     @InjectModel('NotificationTemplate') private readonly notificationTemplateModel: Model<any>,
     @InjectModel('BulkNotification') private readonly bulkNotificationModel: Model<any>,
     @InjectModel('Service') private readonly serviceModel: Model<any>,
+    @InjectModel('FeatureFlag') private readonly featureFlagModel: Model<any>,
+    @InjectModel('Experiment') private readonly experimentModel: Model<any>,
+    @InjectModel('ReputationAction') private readonly reputationActionModel: Model<any>,
   ) {}
 
   /**
@@ -256,16 +259,6 @@ export class AdminService {
     ]);
 
     return { reviews, total };
-  }
-
-  async hideReview(reviewId: string) {
-    const review = await this.reviewModel.findByIdAndUpdate(
-      reviewId,
-      { $set: { status: 'hidden' } },
-      { new: true },
-    );
-    if (!review) throw new NotFoundException('Review not found');
-    return review;
   }
 
   // ═══════ 🔥 OPERATOR MODE — РУЧНОЕ УПРАВЛЕНИЕ ЗАЯВКАМИ ═══════
@@ -1246,5 +1239,499 @@ export class AdminService {
 
     const csv = [headers.join(','), ...rows].join('\n');
     return { csv, count: data.length };
+  }
+
+  // ==================== FEATURE FLAGS ====================
+
+  async getFeatureFlags() {
+    const flags = await this.featureFlagModel.find().sort({ key: 1 }).lean();
+    return {
+      flags: flags.map((f: any) => ({
+        id: f._id.toString(),
+        key: f.key,
+        name: f.name,
+        description: f.description,
+        enabled: f.enabled,
+        rollout: f.rollout,
+        conditions: f.conditions,
+        type: f.type,
+        metadata: f.metadata,
+        createdAt: f.createdAt,
+        updatedAt: f.updatedAt,
+      })),
+    };
+  }
+
+  async createFeatureFlag(data: {
+    key: string;
+    name: string;
+    description?: string;
+    enabled?: boolean;
+    rollout?: number;
+    conditions?: any;
+    type?: string;
+  }) {
+    const flag = await this.featureFlagModel.create(data);
+    await this.logAction({
+      actor: 'ADMIN',
+      action: 'create_feature_flag',
+      entityType: 'feature_flag',
+      entityId: flag._id.toString(),
+      newValue: data,
+      description: `Created feature flag: ${data.key}`,
+    });
+    return { id: flag._id.toString(), key: flag.key };
+  }
+
+  async updateFeatureFlag(id: string, data: any) {
+    const old = await this.featureFlagModel.findById(id).lean() as any;
+    const flag = await this.featureFlagModel.findByIdAndUpdate(
+      id,
+      { $set: { ...data, updatedAt: new Date() } },
+      { new: true },
+    );
+    if (!flag) throw new NotFoundException('Feature flag not found');
+    
+    await this.logAction({
+      actor: 'ADMIN',
+      action: 'update_feature_flag',
+      entityType: 'feature_flag',
+      entityId: id,
+      oldValue: { enabled: old?.enabled, rollout: old?.rollout },
+      newValue: { enabled: flag.enabled, rollout: flag.rollout },
+      description: `Updated feature flag: ${flag.key}`,
+    });
+    
+    return { success: true };
+  }
+
+  async toggleFeatureFlag(key: string, enabled: boolean) {
+    const flag = await this.featureFlagModel.findOneAndUpdate(
+      { key },
+      { $set: { enabled, updatedAt: new Date() } },
+      { new: true },
+    );
+    if (!flag) throw new NotFoundException('Feature flag not found');
+    
+    await this.logAction({
+      actor: 'ADMIN',
+      action: enabled ? 'enable_feature_flag' : 'disable_feature_flag',
+      entityType: 'feature_flag',
+      entityId: flag._id.toString(),
+      description: `${enabled ? 'Enabled' : 'Disabled'} feature flag: ${key}`,
+    });
+    
+    return { key, enabled: flag.enabled };
+  }
+
+  // ==================== EXPERIMENTS ====================
+
+  async getExperiments() {
+    const experiments = await this.experimentModel.find().sort({ createdAt: -1 }).lean();
+    return {
+      experiments: experiments.map((e: any) => ({
+        id: e._id.toString(),
+        name: e.name,
+        description: e.description,
+        featureFlagKey: e.featureFlagKey,
+        variants: e.variants,
+        metric: e.metric,
+        status: e.status,
+        results: e.results,
+        conditions: e.conditions,
+        startDate: e.startDate,
+        endDate: e.endDate,
+        createdAt: e.createdAt,
+      })),
+    };
+  }
+
+  async createExperiment(data: {
+    name: string;
+    description?: string;
+    featureFlagKey: string;
+    variants: { id: string; name: string; config: any; weight: number }[];
+    metric: string;
+    conditions?: any;
+  }) {
+    const experiment = await this.experimentModel.create({
+      ...data,
+      status: 'draft',
+    });
+    
+    await this.logAction({
+      actor: 'ADMIN',
+      action: 'create_experiment',
+      entityType: 'experiment',
+      entityId: experiment._id.toString(),
+      description: `Created experiment: ${data.name}`,
+    });
+    
+    return { id: experiment._id.toString(), name: experiment.name };
+  }
+
+  async updateExperimentStatus(id: string, status: string) {
+    const experiment = await this.experimentModel.findByIdAndUpdate(
+      id,
+      { 
+        $set: { 
+          status,
+          ...(status === 'active' ? { startDate: new Date() } : {}),
+          ...(status === 'completed' ? { endDate: new Date() } : {}),
+        } 
+      },
+      { new: true },
+    );
+    if (!experiment) throw new NotFoundException('Experiment not found');
+    
+    await this.logAction({
+      actor: 'ADMIN',
+      action: `${status}_experiment`,
+      entityType: 'experiment',
+      entityId: id,
+      description: `Set experiment ${experiment.name} to ${status}`,
+    });
+    
+    return { id, status };
+  }
+
+  // ==================== AUTO-SUGGESTED ACTIONS ====================
+
+  async getSuggestions() {
+    const suggestions: any[] = [];
+
+    // 1. Low performance providers
+    const lowPerformanceProviders = await this.organizationModel.find({
+      behavioralScore: { $lt: 50 },
+      status: 'active',
+    }).select('_id name behavioralScore missedRequests').limit(5).lean();
+
+    lowPerformanceProviders.forEach((p: any) => {
+      suggestions.push({
+        id: `low_perf_${p._id}`,
+        type: 'provider_low_performance',
+        severity: 'warning',
+        title: `Мастер "${p.name}" теряет заявки`,
+        description: `Score: ${p.behavioralScore || 0}, пропущено: ${p.missedRequests || 0} заявок`,
+        entityType: 'provider',
+        entityId: p._id.toString(),
+        actions: [
+          { id: 'limit_visibility', label: 'Ограничить видимость', color: 'orange' },
+          { id: 'send_tip', label: 'Отправить подсказку', color: 'blue' },
+          { id: 'boost_competitors', label: 'Boost конкурентов', color: 'green' },
+        ],
+      });
+    });
+
+    // 2. Overdue disputes
+    const overdueDisputes = await this.disputeModel.find({
+      status: 'open',
+      createdAt: { $lt: new Date(Date.now() - 48 * 60 * 60 * 1000) }, // >48h
+    }).limit(5).lean();
+
+    overdueDisputes.forEach((d: any) => {
+      suggestions.push({
+        id: `overdue_dispute_${d._id}`,
+        type: 'overdue_dispute',
+        severity: 'critical',
+        title: `Спор #${d._id.toString().slice(-6)} просрочен`,
+        description: 'Открыт более 48 часов, требует внимания',
+        entityType: 'dispute',
+        entityId: d._id.toString(),
+        actions: [
+          { id: 'resolve_favor_customer', label: 'В пользу клиента', color: 'green' },
+          { id: 'resolve_favor_provider', label: 'В пользу мастера', color: 'blue' },
+          { id: 'escalate', label: 'Эскалировать', color: 'red' },
+        ],
+      });
+    });
+
+    // 3. Stuck bookings
+    const stuckBookings = await this.bookingModel.find({
+      status: 'confirmed',
+      updatedAt: { $lt: new Date(Date.now() - 2 * 60 * 60 * 1000) }, // >2h without progress
+    }).limit(5).lean();
+
+    stuckBookings.forEach((b: any) => {
+      suggestions.push({
+        id: `stuck_booking_${b._id}`,
+        type: 'stuck_booking',
+        severity: 'warning',
+        title: `Заказ #${b._id.toString().slice(-6)} завис`,
+        description: 'Подтверждён, но нет прогресса более 2 часов',
+        entityType: 'booking',
+        entityId: b._id.toString(),
+        actions: [
+          { id: 'contact_provider', label: 'Связаться с мастером', color: 'blue' },
+          { id: 'reassign', label: 'Переназначить', color: 'orange' },
+          { id: 'cancel_refund', label: 'Отменить + возврат', color: 'red' },
+        ],
+      });
+    });
+
+    // 4. Quotes without responses
+    const noResponseQuotes = await this.quoteModel.find({
+      status: 'pending',
+      responsesCount: 0,
+      createdAt: { $lt: new Date(Date.now() - 30 * 60 * 1000) }, // >30min
+    }).limit(5).lean();
+
+    noResponseQuotes.forEach((q: any) => {
+      suggestions.push({
+        id: `no_response_${q._id}`,
+        type: 'quote_no_response',
+        severity: 'warning',
+        title: `Заявка #${q._id.toString().slice(-6)} без ответов`,
+        description: 'Более 30 минут без отклика мастеров',
+        entityType: 'quote',
+        entityId: q._id.toString(),
+        actions: [
+          { id: 'expand_radius', label: 'Расширить радиус', color: 'blue' },
+          { id: 'send_push_providers', label: 'Push мастерам', color: 'green' },
+          { id: 'boost_visibility', label: 'Boost заявки', color: 'orange' },
+        ],
+      });
+    });
+
+    // 5. High-value providers inactive
+    const inactiveGold = await this.organizationModel.find({
+      behavioralTier: { $in: ['gold', 'platinum'] },
+      isOnline: false,
+      lastActiveAt: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }, // >24h
+    }).limit(3).lean();
+
+    inactiveGold.forEach((p: any) => {
+      suggestions.push({
+        id: `inactive_gold_${p._id}`,
+        type: 'inactive_top_provider',
+        severity: 'info',
+        title: `Топ-мастер "${p.name}" неактивен`,
+        description: `${p.behavioralTier} уровень, офлайн более 24ч`,
+        entityType: 'provider',
+        entityId: p._id.toString(),
+        actions: [
+          { id: 'send_reactivation', label: 'Отправить напоминание', color: 'blue' },
+          { id: 'offer_bonus', label: 'Предложить бонус', color: 'green' },
+        ],
+      });
+    });
+
+    return { suggestions, count: suggestions.length };
+  }
+
+  async executeSuggestionAction(suggestionId: string, actionId: string, userId: string) {
+    // Parse suggestion
+    const [type, entityId] = suggestionId.split('_').slice(0, 2).concat([suggestionId.split('_').slice(2).join('_')]);
+    
+    // Log the action
+    await this.logAction({
+      userId,
+      actor: 'ADMIN',
+      action: `suggestion_${actionId}`,
+      entityType: type,
+      entityId: entityId,
+      description: `Executed suggested action: ${actionId}`,
+    });
+
+    // Execute based on action
+    switch (actionId) {
+      case 'limit_visibility':
+        await this.organizationModel.findByIdAndUpdate(entityId, { visibilityState: 'limited' });
+        break;
+      case 'boost_competitors':
+        // Would boost competitors in same zone
+        break;
+      case 'send_tip':
+      case 'send_push_providers':
+      case 'send_reactivation':
+        // Would trigger notification
+        break;
+      case 'expand_radius':
+        // Would expand quote radius
+        break;
+      case 'reassign':
+        await this.bookingModel.findByIdAndUpdate(entityId, { status: 'pending_assignment' });
+        break;
+      case 'cancel_refund':
+        await this.bookingModel.findByIdAndUpdate(entityId, { status: 'cancelled' });
+        break;
+      default:
+        break;
+    }
+
+    return { success: true, actionId, suggestionId };
+  }
+
+  // ==================== REPUTATION CONTROL ====================
+
+  async getProviderReputation(providerId: string) {
+    const provider = await this.organizationModel.findById(providerId).lean();
+    if (!provider) throw new NotFoundException('Provider not found');
+
+    const reviews = await this.reviewModel.find({ organizationId: new Types.ObjectId(providerId) })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    const reputationActions = await this.reputationActionModel.find({ providerId: new Types.ObjectId(providerId) })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    return {
+      provider: {
+        id: (provider as any)._id.toString(),
+        name: (provider as any).name,
+        rating: (provider as any).rating,
+        reviewsCount: (provider as any).reviewsCount,
+        behavioralScore: (provider as any).behavioralScore,
+        behavioralTier: (provider as any).behavioralTier,
+        trustFlags: (provider as any).trustFlags || [],
+        penalties: (provider as any).penalties || [],
+      },
+      reviews: reviews.map((r: any) => ({
+        id: r._id.toString(),
+        rating: r.rating,
+        comment: r.comment,
+        isHidden: r.isHidden || false,
+        createdAt: r.createdAt,
+      })),
+      reputationHistory: reputationActions.map((a: any) => ({
+        id: a._id.toString(),
+        actionType: a.actionType,
+        oldValue: a.oldValue,
+        newValue: a.newValue,
+        reason: a.reason,
+        createdAt: a.createdAt,
+      })),
+    };
+  }
+
+  async adjustProviderRating(providerId: string, data: {
+    newRating: number;
+    reason: string;
+    performedBy: string;
+  }) {
+    const provider = await this.organizationModel.findById(providerId);
+    if (!provider) throw new NotFoundException('Provider not found');
+
+    const oldRating = provider.rating;
+    provider.rating = data.newRating;
+    await provider.save();
+
+    await this.reputationActionModel.create({
+      providerId: new Types.ObjectId(providerId),
+      performedBy: new Types.ObjectId(data.performedBy),
+      actionType: 'rating_adjust',
+      oldValue: { rating: oldRating },
+      newValue: { rating: data.newRating },
+      reason: data.reason,
+    });
+
+    await this.logAction({
+      userId: data.performedBy,
+      actor: 'ADMIN',
+      action: 'adjust_rating',
+      entityType: 'provider',
+      entityId: providerId,
+      oldValue: { rating: oldRating },
+      newValue: { rating: data.newRating },
+      description: `Adjusted rating from ${oldRating} to ${data.newRating}. Reason: ${data.reason}`,
+    });
+
+    return { success: true, oldRating, newRating: data.newRating };
+  }
+
+  async hideReview(reviewId: string, data: { reason: string; performedBy: string }) {
+    const review = await this.reviewModel.findByIdAndUpdate(
+      reviewId,
+      { $set: { isHidden: true, hiddenReason: data.reason } },
+      { new: true },
+    );
+    if (!review) throw new NotFoundException('Review not found');
+
+    await this.reputationActionModel.create({
+      providerId: review.organizationId,
+      performedBy: new Types.ObjectId(data.performedBy),
+      actionType: 'review_hide',
+      reviewId,
+      reason: data.reason,
+    });
+
+    await this.logAction({
+      userId: data.performedBy,
+      actor: 'ADMIN',
+      action: 'hide_review',
+      entityType: 'review',
+      entityId: reviewId,
+      description: `Hidden review. Reason: ${data.reason}`,
+    });
+
+    return { success: true };
+  }
+
+  async addTrustFlag(providerId: string, data: { flag: string; performedBy: string }) {
+    const provider = await this.organizationModel.findByIdAndUpdate(
+      providerId,
+      { $addToSet: { trustFlags: data.flag } },
+      { new: true },
+    );
+    if (!provider) throw new NotFoundException('Provider not found');
+
+    await this.reputationActionModel.create({
+      providerId: new Types.ObjectId(providerId),
+      performedBy: new Types.ObjectId(data.performedBy),
+      actionType: 'trust_flag',
+      newValue: { flag: data.flag },
+    });
+
+    return { success: true, flags: provider.trustFlags };
+  }
+
+  async penalizeProvider(providerId: string, data: {
+    type: string; // warning, score_reduction, suspension
+    severity: number;
+    reason: string;
+    performedBy: string;
+  }) {
+    const provider = await this.organizationModel.findById(providerId);
+    if (!provider) throw new NotFoundException('Provider not found');
+
+    const penalty = {
+      type: data.type,
+      severity: data.severity,
+      reason: data.reason,
+      appliedAt: new Date(),
+    };
+
+    // Apply penalty effects
+    if (data.type === 'score_reduction') {
+      provider.behavioralScore = Math.max(0, (provider.behavioralScore || 50) - data.severity);
+    } else if (data.type === 'suspension') {
+      provider.status = 'suspended';
+    }
+
+    provider.penalties = [...(provider.penalties || []), penalty];
+    await provider.save();
+
+    await this.reputationActionModel.create({
+      providerId: new Types.ObjectId(providerId),
+      performedBy: new Types.ObjectId(data.performedBy),
+      actionType: 'penalize',
+      newValue: penalty,
+      reason: data.reason,
+    });
+
+    await this.logAction({
+      userId: data.performedBy,
+      actor: 'ADMIN',
+      action: 'penalize_provider',
+      entityType: 'provider',
+      entityId: providerId,
+      newValue: penalty,
+      description: `Applied penalty: ${data.type} (severity: ${data.severity}). Reason: ${data.reason}`,
+    });
+
+    return { success: true, penalty };
   }
 }

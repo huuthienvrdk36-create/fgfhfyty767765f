@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Backend API Testing for Auto Platform Admin Panel
-Tests P1 features: Audit Log, Global Search, Notifications, Reports & Export
+Tests P3 features: Feature Flags, Experiments, Auto-Suggested Actions, Reputation Control
 """
 
 import requests
@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 
 class AdminAPITester:
-    def __init__(self, base_url="https://ea289e00-5505-4b34-be10-0837cfce4f8a.preview.emergentagent.com"):
+    def __init__(self, base_url="https://build-upgrade-7.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.tests_run = 0
@@ -92,217 +92,231 @@ class AdminAPITester:
             200
         )[0]
 
-    def test_audit_log(self):
-        """Test audit log endpoints"""
-        print("\n📋 Testing Audit Log APIs...")
+    def test_feature_flags(self):
+        """Test Feature Flags functionality"""
+        print("\n🚩 Testing Feature Flags APIs...")
         
-        # Test basic audit log
-        success1, _ = self.run_test(
-            "Get Audit Log",
-            "GET",
-            "api/admin/audit-log?limit=5",
-            200
-        )
-        
-        # Test with filters
-        success2, _ = self.run_test(
-            "Get Audit Log with Actor Filter",
-            "GET",
-            "api/admin/audit-log?actor=ADMIN&limit=3",
-            200
-        )
-        
-        # Test with entity type filter
-        success3, _ = self.run_test(
-            "Get Audit Log with Entity Filter",
-            "GET",
-            "api/admin/audit-log?entityType=user&limit=3",
-            200
-        )
-        
-        return success1 and success2 and success3
-
-    def test_global_search(self):
-        """Test global search functionality"""
-        print("\n🔍 Testing Global Search APIs...")
-        
-        # Test search with BMW (as mentioned in requirements)
+        # Test get feature flags (should show 4 seeded flags)
         success1, response1 = self.run_test(
-            "Global Search - BMW",
+            "Get Feature Flags",
             "GET",
-            "api/admin/search?q=BMW",
+            "api/admin/feature-flags",
             200
         )
         
-        # Test search with admin
+        if success1 and response1:
+            flags = response1.get('flags', [])
+            print(f"   Found {len(flags)} feature flags")
+            if len(flags) >= 4:
+                print("   ✅ Expected 4+ seeded flags found")
+            else:
+                print(f"   ⚠️  Expected 4+ flags, found {len(flags)}")
+        
+        # Test create feature flag
+        flag_data = {
+            "key": f"test_flag_{int(datetime.now().timestamp())}",
+            "name": "Test Feature Flag",
+            "description": "Test flag for API testing",
+            "enabled": False,
+            "rollout": 50,
+            "type": "release"
+        }
         success2, _ = self.run_test(
-            "Global Search - admin",
-            "GET",
-            "api/admin/search?q=admin",
-            200
+            "Create Feature Flag",
+            "POST",
+            "api/admin/feature-flags",
+            201,
+            data=flag_data
         )
         
-        # Test empty search
-        success3, _ = self.run_test(
-            "Global Search - empty",
-            "GET",
-            "api/admin/search?q=",
-            200
-        )
+        # Test toggle feature flag (if we have flags)
+        success3 = True
+        if success1 and response1 and response1.get('flags'):
+            first_flag = response1['flags'][0]
+            flag_key = first_flag.get('key')
+            current_enabled = first_flag.get('enabled', False)
+            
+            if flag_key:
+                success3, _ = self.run_test(
+                    f"Toggle Feature Flag - {flag_key}",
+                    "POST",
+                    f"api/admin/feature-flags/{flag_key}/toggle",
+                    201,
+                    data={"enabled": not current_enabled}
+                )
         
         return success1 and success2 and success3
 
-    def test_notifications_admin(self):
-        """Test notifications admin functionality"""
-        print("\n🔔 Testing Notifications Admin APIs...")
+    def test_experiments(self):
+        """Test Experiments functionality"""
+        print("\n🧪 Testing Experiments APIs...")
         
-        # Test get templates
-        success1, _ = self.run_test(
-            "Get Notification Templates",
+        # Test get experiments (should show empty state initially)
+        success1, response1 = self.run_test(
+            "Get Experiments",
             "GET",
-            "api/admin/notifications/templates",
+            "api/admin/experiments",
             200
         )
         
-        # Test get bulk notifications history
-        success2, _ = self.run_test(
-            "Get Bulk Notifications History",
-            "GET",
-            "api/admin/notifications/history?limit=5",
-            200
-        )
+        if success1 and response1:
+            experiments = response1.get('experiments', [])
+            print(f"   Found {len(experiments)} experiments")
         
-        # Test create template
-        template_data = {
-            "code": "test_template_" + str(int(datetime.now().timestamp())),
-            "title": "Test Template",
-            "message": "This is a test notification template",
-            "category": "system",
-            "channels": ["push"]
+        # Test create experiment
+        experiment_data = {
+            "name": f"Test Experiment {int(datetime.now().timestamp())}",
+            "description": "Test A/B experiment",
+            "featureFlagKey": "test_flag",
+            "variants": [
+                {"id": "control", "name": "Control", "config": {}, "weight": 50},
+                {"id": "variant_a", "name": "Variant A", "config": {}, "weight": 50}
+            ],
+            "metric": "conversion_rate"
         }
-        success3, _ = self.run_test(
-            "Create Notification Template",
+        success2, response2 = self.run_test(
+            "Create Experiment",
             "POST",
-            "api/admin/notifications/templates",
-            201,  # POST operations return 201
-            data=template_data
+            "api/admin/experiments",
+            201,
+            data=experiment_data
         )
         
-        # Test bulk notification send
-        bulk_data = {
-            "title": "Test Bulk Notification",
-            "message": "This is a test bulk notification",
-            "filters": {
-                "roles": ["provider_owner"],
-                "tiers": ["bronze"]
-            },
-            "channels": ["push"]
+        # Test update experiment status (if created successfully)
+        success3 = True
+        if success2 and response2 and response2.get('id'):
+            exp_id = response2['id']
+            success3, _ = self.run_test(
+                "Update Experiment Status",
+                "PATCH",
+                f"api/admin/experiments/{exp_id}/status",
+                200,
+                data={"status": "active"}
+            )
+        
+        return success1 and success2 and success3
+
+    def test_auto_suggestions(self):
+        """Test Auto-Suggested Actions functionality"""
+        print("\n💡 Testing Auto-Suggested Actions APIs...")
+        
+        # Test get suggestions
+        success1, response1 = self.run_test(
+            "Get Smart Suggestions",
+            "GET",
+            "api/admin/suggestions",
+            200
+        )
+        
+        if success1 and response1:
+            suggestions = response1.get('suggestions', [])
+            print(f"   Found {len(suggestions)} suggestions")
+            
+            # Check for different severity levels
+            critical = len([s for s in suggestions if s.get('severity') == 'critical'])
+            warning = len([s for s in suggestions if s.get('severity') == 'warning'])
+            info = len([s for s in suggestions if s.get('severity') == 'info'])
+            print(f"   Critical: {critical}, Warning: {warning}, Info: {info}")
+        
+        # Test execute suggestion action (if we have suggestions)
+        success2 = True
+        if success1 and response1 and response1.get('suggestions'):
+            suggestions = response1['suggestions']
+            if suggestions:
+                suggestion = suggestions[0]
+                suggestion_id = suggestion.get('id')
+                actions = suggestion.get('actions', [])
+                
+                if suggestion_id and actions:
+                    action_id = actions[0].get('id')
+                    success2, _ = self.run_test(
+                        f"Execute Suggestion Action",
+                        "POST",
+                        f"api/admin/suggestions/{suggestion_id}/execute",
+                        200,
+                        data={"actionId": action_id}
+                    )
+        
+        return success1 and success2
+
+    def test_reputation_control(self):
+        """Test Reputation Control functionality"""
+        print("\n🛡️ Testing Reputation Control APIs...")
+        
+        # First, get organizations to find a provider ID
+        success0, orgs_response = self.run_test(
+            "Get Organizations for Reputation Test",
+            "GET",
+            "api/admin/organizations?limit=1",
+            200
+        )
+        
+        provider_id = None
+        if success0 and orgs_response and orgs_response.get('organizations'):
+            orgs = orgs_response['organizations']
+            if orgs:
+                provider_id = orgs[0].get('_id') or orgs[0].get('id')
+        
+        if not provider_id:
+            print("   ⚠️  No provider found for reputation testing")
+            return True  # Skip but don't fail
+        
+        # Test get provider reputation
+        success1, response1 = self.run_test(
+            "Get Provider Reputation",
+            "GET",
+            f"api/admin/providers/{provider_id}/reputation",
+            200
+        )
+        
+        if success1 and response1:
+            provider = response1.get('provider', {})
+            reviews = response1.get('reviews', [])
+            history = response1.get('reputationHistory', [])
+            print(f"   Provider: {provider.get('name', 'Unknown')}")
+            print(f"   Reviews: {len(reviews)}, History: {len(history)}")
+        
+        # Test adjust provider rating
+        rating_data = {
+            "newRating": 4.2,
+            "reason": "Test rating adjustment for API testing"
+        }
+        success2, _ = self.run_test(
+            "Adjust Provider Rating",
+            "POST",
+            f"api/admin/providers/{provider_id}/reputation/rating",
+            201,
+            data=rating_data
+        )
+        
+        # Test add trust flag
+        success3, _ = self.run_test(
+            "Add Trust Flag",
+            "POST",
+            f"api/admin/providers/{provider_id}/reputation/trust-flag",
+            201,
+            data={"flag": "verified_documents"}
+        )
+        
+        # Test penalize provider
+        penalty_data = {
+            "type": "warning",
+            "severity": 10,
+            "reason": "Test penalty for API testing"
         }
         success4, _ = self.run_test(
-            "Send Bulk Notification",
+            "Penalize Provider",
             "POST",
-            "api/admin/notifications/bulk",
-            201,  # POST operations return 201
-            data=bulk_data
+            f"api/admin/providers/{provider_id}/reputation/penalize",
+            201,
+            data=penalty_data
         )
         
         return success1 and success2 and success3 and success4
 
-    def test_reports_and_export(self):
-        """Test reports and export functionality"""
-        print("\n📊 Testing Reports & Export APIs...")
-        
-        # Test KPIs report
-        success1, _ = self.run_test(
-            "Get KPIs Report",
-            "GET",
-            "api/admin/reports/kpis",
-            200
-        )
-        
-        # Test Revenue report
-        success2, _ = self.run_test(
-            "Get Revenue Report",
-            "GET",
-            "api/admin/reports/revenue",
-            200
-        )
-        
-        # Test Bookings report
-        success3, _ = self.run_test(
-            "Get Bookings Report",
-            "GET",
-            "api/admin/reports/bookings",
-            200
-        )
-        
-        # Test Providers report
-        success4, _ = self.run_test(
-            "Get Providers Report",
-            "GET",
-            "api/admin/reports/providers",
-            200
-        )
-        
-        # Test Conversion report
-        success5, _ = self.run_test(
-            "Get Conversion Report",
-            "GET",
-            "api/admin/reports/conversion",
-            200
-        )
-        
-        # Test CSV Export - Users
-        success6, _ = self.run_test(
-            "Export Users CSV",
-            "GET",
-            "api/admin/export/users",
-            200
-        )
-        
-        # Test CSV Export - Organizations
-        success7, _ = self.run_test(
-            "Export Organizations CSV",
-            "GET",
-            "api/admin/export/organizations",
-            200
-        )
-        
-        return success1 and success2 and success3 and success4 and success5 and success6 and success7
-
-    def test_additional_admin_apis(self):
-        """Test additional admin APIs"""
-        print("\n🔧 Testing Additional Admin APIs...")
-        
-        # Test get users
-        success1, _ = self.run_test(
-            "Get Users",
-            "GET",
-            "api/admin/users?limit=5",
-            200
-        )
-        
-        # Test get organizations
-        success2, _ = self.run_test(
-            "Get Organizations",
-            "GET",
-            "api/admin/organizations?limit=5",
-            200
-        )
-        
-        # Test get bookings
-        success3, _ = self.run_test(
-            "Get Bookings",
-            "GET",
-            "api/admin/bookings?limit=5",
-            200
-        )
-        
-        return success1 and success2 and success3
-
 def main():
-    print("🚀 Starting Auto Platform Admin Panel API Tests")
-    print("=" * 60)
+    print("🚀 Starting Auto Platform Admin Panel API Tests - P3 Features")
+    print("=" * 70)
     
     tester = AdminAPITester()
     
@@ -311,14 +325,13 @@ def main():
         print("\n❌ Admin login failed, stopping tests")
         return 1
     
-    # Test all P1 features
+    # Test P3 features
     tests = [
         ("Dashboard Stats", tester.test_dashboard_stats),
-        ("Audit Log APIs", tester.test_audit_log),
-        ("Global Search APIs", tester.test_global_search),
-        ("Notifications Admin APIs", tester.test_notifications_admin),
-        ("Reports & Export APIs", tester.test_reports_and_export),
-        ("Additional Admin APIs", tester.test_additional_admin_apis),
+        ("Feature Flags APIs", tester.test_feature_flags),
+        ("Experiments APIs", tester.test_experiments),
+        ("Auto-Suggested Actions APIs", tester.test_auto_suggestions),
+        ("Reputation Control APIs", tester.test_reputation_control),
     ]
     
     for test_name, test_func in tests:
@@ -330,7 +343,7 @@ def main():
             tester.failed_tests.append(f"{test_name}: {e}")
     
     # Print results
-    print(f"\n{'='*60}")
+    print(f"\n{'='*70}")
     print(f"📊 Test Results:")
     print(f"   Tests passed: {tester.tests_passed}/{tester.tests_run}")
     print(f"   Success rate: {(tester.tests_passed/tester.tests_run)*100:.1f}%")

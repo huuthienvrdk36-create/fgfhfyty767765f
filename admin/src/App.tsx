@@ -24,6 +24,9 @@ import MarketControlPage from './pages/MarketControlPage';
 import AuditLogPage from './pages/AuditLogPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ReportsPage from './pages/ReportsPage';
+import FeatureFlagsPage from './pages/FeatureFlagsPage';
+import SuggestionsPage from './pages/SuggestionsPage';
+import ReputationPage from './pages/ReputationPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, token } = useAuthStore();
@@ -81,6 +84,9 @@ export default function App() {
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="audit-log" element={<AuditLogPage />} />
+        <Route path="feature-flags" element={<FeatureFlagsPage />} />
+        <Route path="suggestions" element={<SuggestionsPage />} />
+        <Route path="providers/:providerId/reputation" element={<ReputationPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

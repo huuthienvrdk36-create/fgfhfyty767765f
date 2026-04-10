@@ -276,10 +276,32 @@ export const adminAPI = {
   getMarketKPIs: (params?: { scope?: string; zoneId?: string; periodType?: string; limit?: number }) =>
     api.get('/admin/market/learning/kpis', { params }),
   getExperiments: (status?: string) => 
-    api.get('/admin/market/learning/experiments', { params: status ? { status } : {} }),
-  createExperiment: (data: any) => api.post('/admin/market/learning/experiments', data),
+    api.get('/admin/experiments', { params: status ? { status } : {} }),
+  createExperiment: (data: any) => api.post('/admin/experiments', data),
   startExperiment: (id: string) => api.post(`/admin/market/learning/experiments/${id}/start`),
   forceMeasurement: (executionId: string) => api.post(`/admin/market/learning/measure/${executionId}`),
+  
+  // Feature Flags
+  getFeatureFlags: () => api.get('/admin/feature-flags'),
+  createFeatureFlag: (data: any) => api.post('/admin/feature-flags', data),
+  updateFeatureFlag: (id: string, data: any) => api.patch(`/admin/feature-flags/${id}`, data),
+  toggleFeatureFlag: (key: string, enabled: boolean) => api.post(`/admin/feature-flags/${key}/toggle`, { enabled }),
+  updateExperimentStatus: (id: string, status: string) => api.patch(`/admin/experiments/${id}/status`, { status }),
+  
+  // Auto-Suggestions
+  getSuggestions: () => api.get('/admin/suggestions'),
+  executeSuggestionAction: (suggestionId: string, actionId: string) => 
+    api.post(`/admin/suggestions/${suggestionId}/execute`, { actionId }),
+  
+  // Reputation Control
+  getProviderReputation: (providerId: string) => api.get(`/admin/providers/${providerId}/reputation`),
+  adjustProviderRating: (providerId: string, data: { newRating: number; reason: string }) =>
+    api.post(`/admin/providers/${providerId}/reputation/rating`, data),
+  hideReview: (reviewId: string, reason: string) => api.post(`/admin/reviews/${reviewId}/hide`, { reason }),
+  addTrustFlag: (providerId: string, flag: string) =>
+    api.post(`/admin/providers/${providerId}/reputation/trust-flag`, { flag }),
+  penalizeProvider: (providerId: string, data: { type: string; severity: number; reason: string }) =>
+    api.post(`/admin/providers/${providerId}/reputation/penalize`, data),
 };
 
 export default api;

@@ -15,6 +15,9 @@ import { AuditLogSchema } from './audit-log.schema';
 import { NotificationTemplateSchema } from './notification-template.schema';
 import { BulkNotificationSchema } from './bulk-notification.schema';
 import { ServiceSchema } from '../services/service.schema';
+import { FeatureFlagSchema } from './feature-flag.schema';
+import { ExperimentSchema } from './experiment.schema';
+import { ReputationActionSchema } from './reputation-action.schema';
 
 @Module({
   imports: [
@@ -31,6 +34,9 @@ import { ServiceSchema } from '../services/service.schema';
       { name: 'NotificationTemplate', schema: NotificationTemplateSchema },
       { name: 'BulkNotification', schema: BulkNotificationSchema },
       { name: 'Service', schema: ServiceSchema },
+      { name: 'FeatureFlag', schema: FeatureFlagSchema },
+      { name: 'Experiment', schema: ExperimentSchema },
+      { name: 'ReputationAction', schema: ReputationActionSchema },
     ]),
     JwtModule.registerAsync({
       useFactory: () => ({

@@ -175,12 +175,6 @@ export class AdminController {
     });
   }
 
-  @Post('reviews/:id/hide')
-  @ApiOperation({ summary: 'Hide review' })
-  hideReview(@Param('id') id: string) {
-    return this.adminService.hideReview(id);
-  }
-
   // ==================== Platform Config ====================
 
   @Get('config')
@@ -401,5 +395,117 @@ export class AdminController {
   @ApiOperation({ summary: 'Export data as CSV' })
   exportData(@Param('entity') entity: string, @Query() params: any) {
     return this.adminService.exportData(entity, params);
+  }
+
+  // ==================== FEATURE FLAGS ====================
+
+  @Get('feature-flags')
+  @ApiOperation({ summary: 'Get all feature flags' })
+  getFeatureFlags() {
+    return this.adminService.getFeatureFlags();
+  }
+
+  @Post('feature-flags')
+  @ApiOperation({ summary: 'Create feature flag' })
+  createFeatureFlag(@Body() body: any) {
+    return this.adminService.createFeatureFlag(body);
+  }
+
+  @Patch('feature-flags/:id')
+  @ApiOperation({ summary: 'Update feature flag' })
+  updateFeatureFlag(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateFeatureFlag(id, body);
+  }
+
+  @Post('feature-flags/:key/toggle')
+  @ApiOperation({ summary: 'Toggle feature flag' })
+  toggleFeatureFlag(@Param('key') key: string, @Body('enabled') enabled: boolean) {
+    return this.adminService.toggleFeatureFlag(key, enabled);
+  }
+
+  // ==================== EXPERIMENTS ====================
+
+  @Get('experiments')
+  @ApiOperation({ summary: 'Get all experiments' })
+  getExperiments() {
+    return this.adminService.getExperiments();
+  }
+
+  @Post('experiments')
+  @ApiOperation({ summary: 'Create experiment' })
+  createExperiment(@Body() body: any) {
+    return this.adminService.createExperiment(body);
+  }
+
+  @Patch('experiments/:id/status')
+  @ApiOperation({ summary: 'Update experiment status' })
+  updateExperimentStatus(@Param('id') id: string, @Body('status') status: string) {
+    return this.adminService.updateExperimentStatus(id, status);
+  }
+
+  // ==================== AUTO-SUGGESTED ACTIONS ====================
+
+  @Get('suggestions')
+  @ApiOperation({ summary: 'Get auto-suggested actions' })
+  getSuggestions() {
+    return this.adminService.getSuggestions();
+  }
+
+  @Post('suggestions/:id/execute')
+  @ApiOperation({ summary: 'Execute suggested action' })
+  executeSuggestionAction(
+    @Param('id') suggestionId: string,
+    @Body('actionId') actionId: string,
+    @Req() req: any,
+  ) {
+    return this.adminService.executeSuggestionAction(suggestionId, actionId, req.user?.sub);
+  }
+
+  // ==================== REPUTATION CONTROL ====================
+
+  @Get('providers/:id/reputation')
+  @ApiOperation({ summary: 'Get provider reputation data' })
+  getProviderReputation(@Param('id') id: string) {
+    return this.adminService.getProviderReputation(id);
+  }
+
+  @Post('providers/:id/reputation/rating')
+  @ApiOperation({ summary: 'Adjust provider rating' })
+  adjustProviderRating(
+    @Param('id') id: string,
+    @Body() body: { newRating: number; reason: string },
+    @Req() req: any,
+  ) {
+    return this.adminService.adjustProviderRating(id, { ...body, performedBy: req.user?.sub });
+  }
+
+  @Post('reviews/:id/hide')
+  @ApiOperation({ summary: 'Hide review' })
+  hideReview(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Req() req: any,
+  ) {
+    return this.adminService.hideReview(id, { reason, performedBy: req.user?.sub });
+  }
+
+  @Post('providers/:id/reputation/trust-flag')
+  @ApiOperation({ summary: 'Add trust flag to provider' })
+  addTrustFlag(
+    @Param('id') id: string,
+    @Body('flag') flag: string,
+    @Req() req: any,
+  ) {
+    return this.adminService.addTrustFlag(id, { flag, performedBy: req.user?.sub });
+  }
+
+  @Post('providers/:id/reputation/penalize')
+  @ApiOperation({ summary: 'Penalize provider' })
+  penalizeProvider(
+    @Param('id') id: string,
+    @Body() body: { type: string; severity: number; reason: string },
+    @Req() req: any,
+  ) {
+    return this.adminService.penalizeProvider(id, { ...body, performedBy: req.user?.sub });
   }
 }

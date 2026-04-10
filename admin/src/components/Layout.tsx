@@ -3,7 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Building2, Calendar, CreditCard, 
   MessageSquare, Star, FileText, Settings, LogOut, MapPin, Inbox,
-  Radio, Package, UserCircle, Globe, Cpu, History, Bell, BarChart3, Search, Zap, AlertTriangle, Wifi, WifiOff
+  Radio, Package, UserCircle, Globe, Cpu, History, Bell, BarChart3, Search, Zap, AlertTriangle, Wifi, WifiOff, Flag, Lightbulb, Shield
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import GlobalSearchModal from './GlobalSearchModal';
@@ -33,10 +33,10 @@ const navGroups = [
   {
     label: 'CONTROL',
     items: [
+      { to: '/market-control', icon: Cpu, label: 'Market Control' },
+      { to: '/feature-flags', icon: Flag, label: 'Feature Flags' },
+      { to: '/suggestions', icon: Lightbulb, label: 'Smart Actions' },
       { to: '/notifications', icon: Bell, label: 'Уведомления' },
-      { to: '/payments', icon: CreditCard, label: 'Платежи' },
-      { to: '/disputes', icon: MessageSquare, label: 'Споры' },
-      { to: '/reviews', icon: Star, label: 'Отзывы' },
     ]
   },
   {
@@ -44,6 +44,14 @@ const navGroups = [
     items: [
       { to: '/reports', icon: BarChart3, label: 'Отчёты' },
       { to: '/audit-log', icon: History, label: 'Audit Log' },
+    ]
+  },
+  {
+    label: 'FINANCE',
+    items: [
+      { to: '/payments', icon: CreditCard, label: 'Платежи' },
+      { to: '/disputes', icon: MessageSquare, label: 'Споры' },
+      { to: '/reviews', icon: Star, label: 'Отзывы' },
     ]
   },
   {
