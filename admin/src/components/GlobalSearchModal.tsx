@@ -225,7 +225,7 @@ export default function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean
                       </div>
                       
                       {/* Inline Actions */}
-                      {showActions === result.id && actions.length > 0 ? (
+                      {(showActions === result.id || index === selectedIndex) && actions.length > 0 ? (
                         <div className="flex items-center gap-1">
                           {actions.map((action, i) => (
                             <button

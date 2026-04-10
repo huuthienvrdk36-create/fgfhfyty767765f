@@ -96,6 +96,47 @@ Clone the Auto Platform project (Uber for Services marketplace) from GitHub and 
 - `notification_templates`: code, title, message, category, channels, variables
 - `bulk_notifications`: sentBy, title, message, filters, recipientCount, status
 
+### P2 — Connected Operator System (Implemented April 10, 2026)
+
+#### 1. Quick Actions Panel (⌘J)
+- **Component**: QuickActionsPanel
+- **Features**:
+  - Keyboard shortcut: Cmd+J
+  - Navigation buttons with shortcuts: Создать заявку (Q), Найти клиента (C), Найти мастера (P), Отправить Push (N), Проблемные заказы (X), Буст зоны (B)
+  - Instant actions: Включить Surge, Push всем онлайн мастерам, Отключить Auto Distribution
+  - One-click execution without page navigation
+
+#### 2. Global Search with Inline Actions (⌘K Enhanced)
+- Inline action buttons appear for search results:
+  - Providers: Boost, Limit, Push
+  - Bookings: Reassign, Call
+  - Users: Push
+- Actions execute without leaving search modal
+- Keyboard navigation preserved
+
+#### 3. Providers Page with Bulk Actions
+- Checkbox selection for multiple providers
+- Floating bulk actions bar when providers selected:
+  - Boost All, Limit All, Send Push
+- Inline action buttons per row (Boost, Limit, Send)
+
+#### 4. Dashboard Alert → Action Flow
+- Alerts now include contextual action buttons:
+  - Supply alerts: Boost Supply, Send Push
+  - SLA alerts: Reassign, Escalate
+  - Dispute alerts: View
+- One-click resolution without navigation
+
+#### 5. Sidebar Restructured
+- Grouped navigation by function:
+  - CORE: Дашборд, Live Monitor, Geo Ops
+  - OPERATIONS: Market Control, Мастера, Provider Inbox, Бронирования, Заявки, Клиенты
+  - CONTROL: Уведомления, Платежи, Споры, Отзывы
+  - ANALYTICS: Отчёты, Audit Log
+  - SYSTEM: Пользователи, Организации, Услуги, Карта, Настройки
+- Connection status indicator (Wifi icon)
+- Quick Actions button with ⌘J shortcut
+
 ## Pending Tasks (Backlog)
 
 ### P2 — Strength Features
