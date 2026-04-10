@@ -204,7 +204,7 @@ export const adminAPI = {
   setConfig: (key: string, value: any) => api.post('/admin/config', { key, value }),
   getCommissionTiers: () => api.get('/admin/config/commission-tiers'),
   updateCommissionTier: (tier: string, data: any) => api.patch(`/admin/config/commission-tiers/${tier}`, data),
-  getFeatureFlags: () => api.get('/admin/config/features'),
+  getConfigFeatureFlags: () => api.get('/admin/config/features'),
   setFeatureFlag: (flag: string, enabled: boolean) => api.post('/admin/config/features', { flag, enabled }),
   
   // Audit Log
@@ -297,11 +297,51 @@ export const adminAPI = {
   getProviderReputation: (providerId: string) => api.get(`/admin/providers/${providerId}/reputation`),
   adjustProviderRating: (providerId: string, data: { newRating: number; reason: string }) =>
     api.post(`/admin/providers/${providerId}/reputation/rating`, data),
-  hideReview: (reviewId: string, reason: string) => api.post(`/admin/reviews/${reviewId}/hide`, { reason }),
+  hideReviewReputation: (reviewId: string, reason: string) => api.post(`/admin/reviews/${reviewId}/hide`, { reason }),
   addTrustFlag: (providerId: string, flag: string) =>
     api.post(`/admin/providers/${providerId}/reputation/trust-flag`, { flag }),
   penalizeProvider: (providerId: string, data: { type: string; severity: number; reason: string }) =>
     api.post(`/admin/providers/${providerId}/reputation/penalize`, data),
+
+  // ==================== P4: GOVERNANCE ====================
+
+  // Supply Quality
+  getSupplyQuality: () => api.get('/admin/providers/quality'),
+  executeQualityAction: (providerId: string, action: string) =>
+    api.post(`/admin/providers/${providerId}/quality-action`, { action }),
+  getAutoRules: () => api.get('/admin/quality/auto-rules'),
+  saveAutoRules: (rules: any[]) => api.post('/admin/quality/auto-rules', { rules }),
+
+  // Zone Control
+  getZonesControl: () => api.get('/admin/zones/control'),
+  executeZoneAction: (zoneId: string, action: string) =>
+    api.post(`/admin/zones/${zoneId}/action`, { action }),
+
+  // Economy Control
+  getEconomyConfig: () => api.get('/admin/economy'),
+  updateEconomyConfig: (data: any) => api.post('/admin/economy', data),
+
+  // Distribution Control
+  getDistributionConfig: () => api.get('/admin/distribution/config'),
+  updateDistributionConfig: (data: any) => api.post('/admin/distribution/config', data),
+
+  // Incident Control
+  getIncidents: () => api.get('/admin/incidents'),
+  executeIncidentAction: (incidentId: string, action: string) =>
+    api.post(`/admin/incidents/${incidentId}/action`, { action }),
+
+  // System Health
+  getSystemHealth: () => api.get('/admin/system/health'),
+
+  // Demand Control
+  getDemandControl: () => api.get('/admin/demand/control'),
+  forceQuoteAction: (quoteId: string, action: string) =>
+    api.post(`/admin/quotes/${quoteId}/force-action`, { action }),
+
+  // Provider Lifecycle
+  getProviderLifecycle: () => api.get('/admin/providers/lifecycle'),
+  executeLifecycleAction: (providerId: string, action: string) =>
+    api.post(`/admin/providers/${providerId}/lifecycle-action`, { action }),
 };
 
 export default api;

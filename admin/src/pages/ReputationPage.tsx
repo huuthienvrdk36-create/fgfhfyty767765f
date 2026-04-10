@@ -96,7 +96,7 @@ export default function ReputationPage() {
     
     setActionLoading(true);
     try {
-      await adminAPI.hideReview(reviewId, reason);
+      await adminAPI.hideReviewReputation(reviewId, reason);
       loadData();
     } catch (err) {
       console.error('Failed to hide review:', err);

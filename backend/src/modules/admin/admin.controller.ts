@@ -508,4 +508,137 @@ export class AdminController {
   ) {
     return this.adminService.penalizeProvider(id, { ...body, performedBy: req.user?.sub });
   }
+
+  // ==================== P4: SUPPLY QUALITY CONTROL ====================
+
+  @Get('providers/quality')
+  @ApiOperation({ summary: 'Get providers quality segmentation' })
+  getProvidersQuality() {
+    return this.adminService.getProvidersQuality();
+  }
+
+  @Post('providers/:id/quality-action')
+  @ApiOperation({ summary: 'Execute quality action on provider' })
+  executeQualityAction(
+    @Param('id') id: string,
+    @Body('action') action: string,
+  ) {
+    return this.adminService.executeQualityAction(id, action);
+  }
+
+  @Get('quality/auto-rules')
+  @ApiOperation({ summary: 'Get auto quality rules' })
+  getAutoRules() {
+    return this.adminService.getAutoRules();
+  }
+
+  @Post('quality/auto-rules')
+  @ApiOperation({ summary: 'Save auto quality rules' })
+  saveAutoRules(@Body('rules') rules: any[]) {
+    return this.adminService.saveAutoRules(rules);
+  }
+
+  // ==================== P4: ZONE CONTROL ====================
+
+  @Get('zones/control')
+  @ApiOperation({ summary: 'Get zones with control data' })
+  getZonesControl() {
+    return this.adminService.getZonesControl();
+  }
+
+  @Post('zones/:id/action')
+  @ApiOperation({ summary: 'Execute zone action' })
+  executeZoneAction(
+    @Param('id') zoneId: string,
+    @Body('action') action: string,
+  ) {
+    return this.adminService.executeZoneAction(zoneId, action);
+  }
+
+  // ==================== P4: ECONOMY CONTROL ====================
+
+  @Get('economy')
+  @ApiOperation({ summary: 'Get economy config' })
+  getEconomyConfig() {
+    return this.adminService.getEconomyConfig();
+  }
+
+  @Post('economy')
+  @ApiOperation({ summary: 'Update economy config' })
+  updateEconomyConfig(@Body() body: any) {
+    return this.adminService.updateEconomyConfig(body);
+  }
+
+  // ==================== P4: DISTRIBUTION CONTROL ====================
+
+  @Get('distribution/config')
+  @ApiOperation({ summary: 'Get distribution config' })
+  getDistributionConfig() {
+    return this.adminService.getDistributionConfig();
+  }
+
+  @Post('distribution/config')
+  @ApiOperation({ summary: 'Update distribution config' })
+  updateDistributionConfig(@Body() body: any) {
+    return this.adminService.updateDistributionConfig(body);
+  }
+
+  // ==================== P4: INCIDENT CONTROL ====================
+
+  @Get('incidents')
+  @ApiOperation({ summary: 'Get active incidents' })
+  getIncidents() {
+    return this.adminService.getIncidents();
+  }
+
+  @Post('incidents/:id/action')
+  @ApiOperation({ summary: 'Execute incident action' })
+  executeIncidentAction(
+    @Param('id') incidentId: string,
+    @Body('action') action: string,
+  ) {
+    return this.adminService.executeIncidentAction(incidentId, action);
+  }
+
+  // ==================== P4: SYSTEM HEALTH ====================
+
+  @Get('system/health')
+  @ApiOperation({ summary: 'Get system health metrics' })
+  getSystemHealth() {
+    return this.adminService.getSystemHealth();
+  }
+
+  // ==================== P4: DEMAND CONTROL ====================
+
+  @Get('demand/control')
+  @ApiOperation({ summary: 'Get demand control data' })
+  getDemandControl() {
+    return this.adminService.getDemandControl();
+  }
+
+  @Post('quotes/:id/force-action')
+  @ApiOperation({ summary: 'Force action on quote' })
+  forceQuoteAction(
+    @Param('id') quoteId: string,
+    @Body('action') action: string,
+  ) {
+    return this.adminService.forceQuoteAction(quoteId, action);
+  }
+
+  // ==================== P4: PROVIDER LIFECYCLE ====================
+
+  @Get('providers/lifecycle')
+  @ApiOperation({ summary: 'Get provider lifecycle data' })
+  getProviderLifecycle() {
+    return this.adminService.getProviderLifecycle();
+  }
+
+  @Post('providers/:id/lifecycle-action')
+  @ApiOperation({ summary: 'Execute lifecycle action' })
+  executeLifecycleAction(
+    @Param('id') id: string,
+    @Body('action') action: string,
+  ) {
+    return this.adminService.executeLifecycleAction(id, action);
+  }
 }

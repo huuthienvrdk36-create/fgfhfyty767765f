@@ -1,0 +1,146 @@
+<analysis>**original_problem_statement:** 
+Подними данный проект, изучи его, клонируй его полностью архитектуру, и затем мы продолжим разработку, доработку. (Clone the provided GitHub repository for a service marketplace, deploy its architecture, and systematically build out the admin panel into an advanced connected operator system).
+
+**PRODUCT REQUIREMENTS:**
+Progressively implement phases P1 to P5 of the admin control panel:
+- **P1 (Control Layer):** Audit Log, Global Search (Cmd+K), Notifications UI, Reports & Exports.
+- **P2 (Operator Actions):** Quick Actions (Cmd+J), Context/Inline Actions in tables, Alert-to-Action flows.
+- **P3 (Optimization):** Feature Flags + Experiments, Auto-Suggested Actions, Reputation Control.
+- **P4 (Governance):** Supply Quality Control, Zone Control, Economy Control, Distribution Control, Incident Control.
+- **P5 (Intelligence):** Simulation Engine, Rule Engine Visualizer, Operator Playbooks.
+
+**User's preferred language**: Russian (RU). 
+**INSTRUCT NEXT AGENT:** You MUST respond to the user in Russian.
+
+**what currently exists?** 
+A fully functional React/Vite admin panel, a NestJS backend, and a MongoDB database. The platform has been successfully cloned, seeded, and deployed. Phases P1, P2, and P3 have been fully implemented, tested by the testing agent, and successfully integrated. The system supports global shortcuts (Cmd+K, Cmd+J), feature flagging, inline actions, and data visualizations.
+
+**Last working item**: 
+    - Last item agent was working: Started Phase P4 (Governance layer). Created the empty React pages for the Top-3 priority tasks: , , and . The implementation of UI and backend APIs for these pages is pending.
+    - Status: IN PROGRESS
+    - Agent Testing Done: N
+    - Which testing method agent to use?: both (testing agent after completing the P4 features)
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:
+  None. (All previous bugs like duplicate API keys and compilation errors were successfully resolved during testing iterations 1-3).
+
+**In progress Task List**:
+  Task 1: Implement P4 Top-3 Priority Features (Governance)
+     - Where to resume: Implement UI in , , and . Add corresponding backend schemas, services, and endpoints in  and . Wire them up in  and .
+     - What will be achieved with this: Full market control over supply quality (auto limit/boost), zone RTS-style management (demand/supply ratios), and economy (commissions, surge).
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix?: both
+     - Blocked on something: No
+
+**Upcoming and Future Tasks**
+    Upcoming Tasks:
+    - P4.4 Distribution Control Panel () [P0]
+    - P4.5 Incident Control System () [P0]
+    - P4.6 System Health Dashboard () [P1]
+    
+    Future Tasks:
+    - P5.1 Simulation Engine () [P2]
+    - P5.2 Rule Engine Visualizer () [P2]
+    - P5.3 Operator Playbooks () [P2]
+
+**Completed work in this session**
+- Repository cloned and initialized with dependencies (Yarn, NestJS, Vite).
+- Database Seeded (Mongo).
+- , , ,  (DONE)
+- , Dashboard Inline actions, Providers Inline actions (DONE)
+- , ,  (DONE)
+- Extensive additions to , , and  to support all P1-P3 features (DONE)
+
+**Earlier issues found/mentioned but not fixed**
+   - None
+
+**Known issue recurrence from previous fork**
+  - Issue recurrence in previous fork: None (First fork).
+  - Recurrence count: 0
+  - Status: NOT STARTED
+
+**Code Architecture**
+-  (Frontend): React + Vite + TailwindCSS. Run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. to compile.
+-  (Backend): NestJS application. Run  to compile. (FastAPI on port 8001 proxies the frontend/backend).
+- : Original cloned repository.
+- : Database seed scripts.
+
+**Key Technical Concepts**
+Frontend: React, Vite, Tailwind CSS, Lucide React (Icons).
+Backend: NestJS, TypeScript, Mongoose.
+Database: MongoDB.
+Architecture: Monolithic API with specialized Admin module, interconnected UI components utilizing keyboard shortcuts and debounced searches.
+
+**key DB schema**
+  - FeatureFlag: {key, enabled, rollout, conditions}
+  - Experiment: {name, variants, trafficSplit, metric, status}
+  - AuditLog: {actor, action, entityType, entityId, details}
+  - NotificationTemplate: {code, title, message, channels}
+
+**changes in tech stack**
+  - Added full admin control features strictly adhering to NestJS (Backend) + React (Frontend) paradigms.
+
+**All files of reference** 
+1. Created/Updated:
+  -  (created, empty)
+  -  (created, empty)
+  -  (created, empty)
+  -  (Heavily updated with P1-P3 methods)
+  -  (Heavily updated)
+  -  (Heavily updated with frontend bindings)
+  -  &  (Created)
+
+**Areas that need refactoring**: 
+ is growing significantly (over 1700 lines). In the future, it may require splitting into specialized services (e.g., , ). 
+
+**key api endpoints**
+- GET/POST 
+- GET/POST 
+- GET 
+- GET/POST 
+- GET  (Target for P4)
+- GET  (Target for P4)
+
+**Critical Info for New Agent** 
+- **Hot Reload/Build**: Vite and NestJS both require building after changes. For frontend changes run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. inside  (or base directory if scripts are hoisted), and for backend changes run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. inside . Afterward, run backend: stopped
+backend: started.
+- The user enforces a strict feature priority order (P1 -> P2 -> P3 -> P4 -> P5). Currently, you are strictly at **P4 Phase**. Do not add random features.
+- Never write direct API URLs with hardcoded domains; always use the pre-configured  Axios instance from .
+
+**documents and test reports created in this job** 
+  - /app/memory/PRD.md
+  - /app/memory/test_credentials.md
+  - /app/test_reports/iteration_1.json
+  - /app/test_reports/iteration_2.json
+  - /app/test_reports/iteration_3.json
+
+**Last 10 User Messages and any pending HUMAN messages** 
+ 1. User sets P1 priorities (Audit, Search, Notifications, Reports). -> Completed
+ 2. User sets P2 priorities (Connected Operator System, Quick Actions, Cmd+K). -> Completed
+ 3. User sets P3 priorities (Optimization, Feature Flags, Suggestions). -> Completed
+ 4. User outlines final P4/P5 priority (Governance, Supply Quality, Zone Control, Economy, Incidents, Simulation). -> (Pending: Just started by creating files)
+
+**Project Health Check:**
+- Broken: None
+- Mocked: P4 endpoints are implicitly mocked/not yet implemented.
+
+**3rd Party Integrations** 
+- Firebase (Notifications, mentioned in codebase but primarily using internal templates/DB for the admin panel UI).
+
+**Testing status**
+  - Testing agent used after significant changes: YES (Iterations 1, 2, and 3).
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: 
+  - Known regressions: None
+
+**Credentials to test flow:**
+  - Email: 
+  - Password: 
+  - Route: Base URL + 
+
+**What agent forgot to execute**
+The agent just created the three files for P4 but did not add the internal UI code, routes to , or backend NestJS logic. You need to pick up exactly from , , and .</analysis>

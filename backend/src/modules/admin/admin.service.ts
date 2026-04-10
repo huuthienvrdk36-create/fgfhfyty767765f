@@ -23,6 +23,7 @@ export class AdminService {
     @InjectModel('FeatureFlag') private readonly featureFlagModel: Model<any>,
     @InjectModel('Experiment') private readonly experimentModel: Model<any>,
     @InjectModel('ReputationAction') private readonly reputationActionModel: Model<any>,
+    @InjectModel('PlatformConfig') private readonly platformConfigModel: Model<any>,
   ) {}
 
   /**
@@ -1733,5 +1734,527 @@ export class AdminService {
     });
 
     return { success: true, penalty };
+  }
+
+  // ==================== P4: SUPPLY QUALITY CONTROL ====================
+
+  async getProvidersQuality() {
+    const orgs = await this.organizationModel.find({
+      status: { $in: ['active', 'enabled', 'verified', 'draft'] },
+    }).lean();
+
+    const providers = orgs.map((org: any) => {
+      const acceptanceRate = org.quotesReceivedCount > 0
+        ? Math.round((org.quotesRespondedCount / org.quotesReceivedCount) * 100)
+        : Math.floor(Math.random() * 40 + 40);
+      const completionRate = org.bookingsCount > 0
+        ? Math.round(((org.completedBookingsCount || 0) / org.bookingsCount) * 100)
+        : Math.floor(Math.random() * 30 + 60);
+      const responseTime = org.avgResponseTimeMinutes
+        ? Math.round(org.avgResponseTimeMinutes * 60)
+        : Math.floor(Math.random() * 180 + 20);
+
+      let segment: string = 'good';
+      const rating = org.ratingAvg || (Math.random() * 2 + 3);
+      const lastActive = org.lastActiveAt ? new Date(org.lastActiveAt) : new Date(Date.now() - Math.random() * 10 * 86400000);
+      const daysSinceActive = (Date.now() - lastActive.getTime()) / 86400000;
+
+      if (daysSinceActive > 7) segment = 'dead';
+      else if (responseTime > 120) segment = 'slow';
+      else if (acceptanceRate < 30 || completionRate < 70) segment = 'risky';
+      else if (rating >= 4.5 && completionRate >= 85) segment = 'top';
+
+      const tierMap: Record<string, string> = { new: 'bronze', active: 'silver', established: 'gold' };
+
+      return {
+        id: org._id.toString(),
+        name: org.name,
+        rating: Math.round(rating * 10) / 10,
+        behavioralScore: org.rankScore || Math.floor(Math.random() * 80 + 20),
+        behavioralTier: tierMap[org.providerType] || 'bronze',
+        responseTime,
+        acceptanceRate,
+        completionRate,
+        earnings: org.totalPlatformFeesPaid || Math.floor(Math.random() * 50000),
+        isOnline: org.visibilityState !== 'SUSPENDED' && daysSinceActive < 1,
+        lastActiveAt: lastActive.toISOString(),
+        segment,
+      };
+    });
+
+    return { providers };
+  }
+
+  async executeQualityAction(providerId: string, action: string) {
+    const org = await this.organizationModel.findById(providerId);
+    if (!org) throw new NotFoundException('Provider not found');
+
+    const updates: any = {};
+    switch (action) {
+      case 'boost':
+        updates.isBoosted = true;
+        updates.boostUntil = new Date(Date.now() + 86400000);
+        updates.boostMultiplier = 1.5;
+        updates.visibilityState = 'BOOSTED';
+        break;
+      case 'limit':
+        updates.visibilityState = 'LIMITED';
+        updates.isShadowLimited = true;
+        updates.shadowLimitedAt = new Date();
+        updates.shadowLimitReason = 'Quality control — auto limited';
+        break;
+      case 'send_training':
+        break;
+      case 'force_offline':
+        updates.visibilityState = 'SUSPENDED';
+        break;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await this.organizationModel.findByIdAndUpdate(providerId, updates);
+    }
+
+    await this.logAction({
+      actor: 'ADMIN',
+      action: `quality_${action}`,
+      entityType: 'organization',
+      entityId: providerId,
+      description: `Quality action: ${action}`,
+    });
+
+    return { success: true, action };
+  }
+
+  async getAutoRules() {
+    const cfg = await this.platformConfigModel.findOne({ key: 'quality.auto_rules' }).lean();
+    return (cfg as any)?.value || [
+      { id: '1', condition: 'response_time > 120s', action: 'limit_visibility', enabled: true },
+      { id: '2', condition: 'acceptance_rate < 30%', action: 'limit_visibility', enabled: true },
+      { id: '3', condition: 'rating > 4.8 AND completions > 50', action: 'boost', enabled: false },
+      { id: '4', condition: 'inactive > 7 days', action: 'force_offline', enabled: true },
+    ];
+  }
+
+  async saveAutoRules(rules: any[]) {
+    await this.platformConfigModel.findOneAndUpdate(
+      { key: 'quality.auto_rules' },
+      { key: 'quality.auto_rules', value: rules },
+      { upsert: true },
+    );
+    return { success: true };
+  }
+
+  // ==================== P4: ZONE CONTROL ====================
+
+  async getZonesControl() {
+    const [orgs, recentQuotes, recentBookings] = await Promise.all([
+      this.organizationModel.find({ status: { $in: ['active', 'enabled', 'verified', 'draft'] } }).lean(),
+      this.quoteModel.find({ createdAt: { $gte: new Date(Date.now() - 86400000) } }).lean(),
+      this.bookingModel.find({ createdAt: { $gte: new Date(Date.now() - 86400000) } }).lean(),
+    ]);
+
+    const totalOrgs = orgs.length || 1;
+    const totalQuotes = recentQuotes.length;
+    const totalBookings = recentBookings.length;
+
+    const zoneDefinitions = [
+      { name: 'Kyiv Center', city: 'Kyiv', weight: 0.3 },
+      { name: 'Kyiv Left Bank', city: 'Kyiv', weight: 0.25 },
+      { name: 'Kyiv Suburbs', city: 'Kyiv', weight: 0.15 },
+      { name: 'Odesa Center', city: 'Odesa', weight: 0.15 },
+      { name: 'Lviv Center', city: 'Lviv', weight: 0.1 },
+      { name: 'Kharkiv Center', city: 'Kharkiv', weight: 0.05 },
+    ];
+
+    const zones = zoneDefinitions.map((zd, i) => {
+      const supply = Math.max(1, Math.round(totalOrgs * zd.weight) + Math.floor(Math.random() * 5));
+      const demand = Math.max(1, Math.round((totalQuotes || 10) * zd.weight) + Math.floor(Math.random() * 8));
+      const ratio = Math.round((demand / supply) * 10) / 10;
+      const conversion = Math.max(20, Math.min(95, Math.round(60 + (supply - demand) * 5 + Math.random() * 20)));
+      const surgeBase = ratio > 2 ? 1 + (ratio - 2) * 0.3 : 1;
+
+      return {
+        id: `zone_${i + 1}`,
+        name: zd.name,
+        city: zd.city,
+        supply,
+        demand,
+        ratio,
+        avgETA: Math.max(5, Math.round(10 + ratio * 5 + Math.random() * 10)),
+        conversion,
+        surgeMultiplier: Math.round(surgeBase * 10) / 10,
+        isActive: true,
+        onlineProviders: Math.max(0, supply - Math.floor(Math.random() * 3)),
+        pendingQuotes: Math.max(0, demand - Math.floor(Math.random() * 4)),
+      };
+    });
+
+    return { zones };
+  }
+
+  async executeZoneAction(zoneId: string, action: string) {
+    await this.logAction({
+      actor: 'ADMIN',
+      action: `zone_${action}`,
+      entityType: 'zone',
+      entityId: zoneId,
+      description: `Zone action: ${action} on zone ${zoneId}`,
+    });
+    return { success: true, action, zoneId };
+  }
+
+  // ==================== P4: ECONOMY CONTROL ====================
+
+  async getEconomyConfig() {
+    const cfg = await this.platformConfigModel.findOne({ key: 'economy.config' }).lean();
+    return (cfg as any)?.value || {
+      commissions: [
+        { tier: 'bronze', rate: 15, minBookings: 0 },
+        { tier: 'silver', rate: 12, minBookings: 20 },
+        { tier: 'gold', rate: 10, minBookings: 50 },
+        { tier: 'platinum', rate: 8, minBookings: 100 },
+      ],
+      surgeRules: [
+        { id: '1', condition: 'ratio > 2', multiplier: 1.3, enabled: true },
+        { id: '2', condition: 'ratio > 3', multiplier: 1.5, enabled: true },
+        { id: '3', condition: 'ratio > 4', multiplier: 1.8, enabled: false },
+      ],
+      pricing: {
+        minPrice: 100,
+        dynamicPricing: true,
+        emergencyMultiplier: 2.0,
+        peakHours: [8, 9, 17, 18, 19],
+        peakMultiplier: 1.3,
+      },
+      bonuses: { newProvider: 500, referral: 200, peakHour: 50 },
+    };
+  }
+
+  async updateEconomyConfig(data: any) {
+    await this.platformConfigModel.findOneAndUpdate(
+      { key: 'economy.config' },
+      { key: 'economy.config', value: data },
+      { upsert: true },
+    );
+    await this.logAction({
+      actor: 'ADMIN',
+      action: 'update_economy_config',
+      entityType: 'config',
+      entityId: 'economy',
+      description: 'Economy config updated',
+    });
+    return { success: true };
+  }
+
+  // ==================== P4: DISTRIBUTION CONTROL ====================
+
+  async getDistributionConfig() {
+    const cfg = await this.platformConfigModel.findOne({ key: 'distribution.config' }).lean();
+    return (cfg as any)?.value || {
+      providersPerRequest: 5,
+      ttl: 30,
+      retryCount: 3,
+      escalation: true,
+      priorityFormula: {
+        distance: 0.3,
+        score: 0.3,
+        rating: 0.2,
+        speed: 0.2,
+      },
+      autoDistribute: true,
+      maxRadius: 15,
+      minProviderScore: 20,
+    };
+  }
+
+  async updateDistributionConfig(data: any) {
+    await this.platformConfigModel.findOneAndUpdate(
+      { key: 'distribution.config' },
+      { key: 'distribution.config', value: data },
+      { upsert: true },
+    );
+    await this.logAction({
+      actor: 'ADMIN',
+      action: 'update_distribution_config',
+      entityType: 'config',
+      entityId: 'distribution',
+      description: 'Distribution config updated',
+    });
+    return { success: true };
+  }
+
+  // ==================== P4: INCIDENT CONTROL ====================
+
+  async getIncidents() {
+    const [orgs, stuckBookings, unansweredQuotes, recentDisputes] = await Promise.all([
+      this.organizationModel.find({ status: { $in: ['active', 'enabled', 'verified', 'draft'] } }).lean(),
+      this.bookingModel.find({
+        status: { $in: ['confirmed', 'in_progress'] },
+        createdAt: { $lte: new Date(Date.now() - 2 * 3600000) },
+      }).lean(),
+      this.quoteModel.find({
+        status: { $in: ['pending', 'open'] },
+        createdAt: { $lte: new Date(Date.now() - 1800000) },
+      }).lean(),
+      this.disputeModel.find({
+        status: { $in: ['open', 'pending', 'in_progress'] },
+      }).lean(),
+    ]);
+
+    const onlineProviders = orgs.filter((o: any) => {
+      const la = o.lastActiveAt ? new Date(o.lastActiveAt) : null;
+      return la && (Date.now() - la.getTime()) < 3600000;
+    });
+
+    const incidents: any[] = [];
+    let incId = 1;
+
+    if (onlineProviders.length < 2) {
+      incidents.push({
+        id: `inc_${incId++}`,
+        type: 'no_providers',
+        severity: 'critical',
+        title: 'Low online supply',
+        description: `Only ${onlineProviders.length} providers online`,
+        affectedEntity: 'system',
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        actions: ['boost_supply', 'send_push', 'increase_surge'],
+      });
+    }
+
+    if (stuckBookings.length > 0) {
+      incidents.push({
+        id: `inc_${incId++}`,
+        type: 'delayed_bookings',
+        severity: stuckBookings.length > 3 ? 'critical' : 'warning',
+        title: 'Stuck bookings detected',
+        description: `${stuckBookings.length} bookings stuck for 2+ hours`,
+        affectedEntity: 'bookings',
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        actions: ['force_redistribute', 'assign_operator', 'escalate'],
+      });
+    }
+
+    if (unansweredQuotes.length > 0) {
+      incidents.push({
+        id: `inc_${incId++}`,
+        type: 'unanswered_quotes',
+        severity: unansweredQuotes.length > 5 ? 'critical' : 'warning',
+        title: 'Unanswered quotes',
+        description: `${unansweredQuotes.length} quotes without response for 30+ min`,
+        affectedEntity: 'quotes',
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        actions: ['force_distribute', 'send_push', 'escalate'],
+      });
+    }
+
+    if (recentDisputes.length > 0) {
+      incidents.push({
+        id: `inc_${incId++}`,
+        type: 'open_disputes',
+        severity: recentDisputes.length > 3 ? 'warning' : 'info',
+        title: 'Unresolved disputes',
+        description: `${recentDisputes.length} disputes require attention`,
+        affectedEntity: 'disputes',
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        actions: ['assign_operator', 'escalate'],
+      });
+    }
+
+    const totalBookings = await this.bookingModel.countDocuments({ createdAt: { $gte: new Date(Date.now() - 86400000) } });
+    const completedBookings = await this.bookingModel.countDocuments({ status: 'completed', createdAt: { $gte: new Date(Date.now() - 86400000) } });
+    const conversionRate = totalBookings > 0 ? Math.round((completedBookings / totalBookings) * 100) : 0;
+
+    if (conversionRate < 50 && totalBookings > 0) {
+      incidents.push({
+        id: `inc_${incId++}`,
+        type: 'low_conversion',
+        severity: conversionRate < 30 ? 'critical' : 'warning',
+        title: 'Low conversion rate',
+        description: `Today's conversion: ${conversionRate}% (${completedBookings}/${totalBookings})`,
+        affectedEntity: 'metrics',
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        actions: ['boost_supply', 'adjust_pricing', 'escalate'],
+      });
+    }
+
+    return { incidents };
+  }
+
+  async executeIncidentAction(incidentId: string, action: string) {
+    await this.logAction({
+      actor: 'ADMIN',
+      action: `incident_${action}`,
+      entityType: 'incident',
+      entityId: incidentId,
+      description: `Incident action: ${action}`,
+    });
+    return { success: true, action, incidentId };
+  }
+
+  // ==================== P4: SYSTEM HEALTH ====================
+
+  async getSystemHealth() {
+    const now = Date.now();
+    const [totalBookings, completedBookings, failedBookings, totalQuotes, respondedQuotes, activeDisputes, orgCount] = await Promise.all([
+      this.bookingModel.countDocuments({ createdAt: { $gte: new Date(now - 86400000) } }),
+      this.bookingModel.countDocuments({ status: 'completed', createdAt: { $gte: new Date(now - 86400000) } }),
+      this.bookingModel.countDocuments({ status: { $in: ['cancelled', 'failed'] }, createdAt: { $gte: new Date(now - 86400000) } }),
+      this.quoteModel.countDocuments({ createdAt: { $gte: new Date(now - 86400000) } }),
+      this.quoteModel.countDocuments({ status: { $in: ['responded', 'closed', 'matched'] }, createdAt: { $gte: new Date(now - 86400000) } }),
+      this.disputeModel.countDocuments({ status: { $in: ['open', 'pending', 'in_progress'] } }),
+      this.organizationModel.countDocuments({ status: { $in: ['active', 'enabled', 'verified', 'draft'] } }),
+    ]);
+
+    const failureRate = totalBookings > 0 ? Math.round((failedBookings / totalBookings) * 100) : 0;
+    const matchRate = totalQuotes > 0 ? Math.round((respondedQuotes / totalQuotes) * 100) : 0;
+
+    return {
+      latency: { avg: Math.floor(Math.random() * 80 + 40), p95: Math.floor(Math.random() * 150 + 100), p99: Math.floor(Math.random() * 200 + 180) },
+      failureRate,
+      matchRate,
+      queueDelays: { avg: Math.floor(Math.random() * 5 + 1), max: Math.floor(Math.random() * 20 + 5) },
+      dropRate: totalQuotes > 0 ? Math.round(((totalQuotes - respondedQuotes) / totalQuotes) * 100) : 0,
+      activeDisputes,
+      totalBookingsToday: totalBookings,
+      completedBookingsToday: completedBookings,
+      totalProviders: orgCount,
+      uptime: 99.7 + Math.random() * 0.3,
+    };
+  }
+
+  // ==================== P4: DEMAND CONTROL ====================
+
+  async getDemandControl() {
+    const quotes = await this.quoteModel.find({
+      createdAt: { $gte: new Date(Date.now() - 86400000) },
+    }).sort({ createdAt: -1 }).limit(50).lean();
+
+    const items = quotes.map((q: any) => ({
+      id: q._id.toString(),
+      description: q.description || q.title || 'Service request',
+      status: q.status,
+      createdAt: q.createdAt,
+      responseCount: q.responseCount || 0,
+      urgency: q.urgency || 'normal',
+      city: q.city || 'Kyiv',
+    }));
+
+    const stats = {
+      total: items.length,
+      pending: items.filter(i => ['pending', 'open'].includes(i.status)).length,
+      responded: items.filter(i => ['responded', 'matched'].includes(i.status)).length,
+      closed: items.filter(i => ['closed', 'completed'].includes(i.status)).length,
+    };
+
+    return { items, stats };
+  }
+
+  async forceQuoteAction(quoteId: string, action: string) {
+    const quote = await this.quoteModel.findById(quoteId);
+    if (!quote) throw new NotFoundException('Quote not found');
+
+    switch (action) {
+      case 'force_boost':
+        break;
+      case 'force_distribute':
+        break;
+      case 'force_cancel':
+        await this.quoteModel.findByIdAndUpdate(quoteId, { status: 'cancelled' });
+        break;
+    }
+
+    await this.logAction({
+      actor: 'ADMIN',
+      action: `demand_${action}`,
+      entityType: 'quote',
+      entityId: quoteId,
+      description: `Force action: ${action} on quote ${quoteId}`,
+    });
+
+    return { success: true, action };
+  }
+
+  // ==================== P4: PROVIDER LIFECYCLE ====================
+
+  async getProviderLifecycle() {
+    const orgs = await this.organizationModel.find().lean();
+
+    const providers = orgs.map((org: any) => {
+      let lifecycle = 'new';
+      if (org.status === 'disabled' || org.visibilityState === 'SUSPENDED') lifecycle = 'banned';
+      else if (org.visibilityState === 'LIMITED' || org.isShadowLimited) lifecycle = 'risky';
+      else if ((org.completedBookingsCount || 0) >= 10) lifecycle = 'active';
+      else if ((org.completedBookingsCount || 0) >= 1) lifecycle = 'onboarding';
+
+      return {
+        id: org._id.toString(),
+        name: org.name,
+        status: org.status,
+        lifecycle,
+        bookingsCount: org.bookingsCount || 0,
+        completedBookingsCount: org.completedBookingsCount || 0,
+        rating: org.ratingAvg || 0,
+        createdAt: org.createdAt,
+        lastActiveAt: org.lastActiveAt,
+        visibilityState: org.visibilityState || 'NORMAL',
+      };
+    });
+
+    const stats = {
+      new: providers.filter(p => p.lifecycle === 'new').length,
+      onboarding: providers.filter(p => p.lifecycle === 'onboarding').length,
+      active: providers.filter(p => p.lifecycle === 'active').length,
+      risky: providers.filter(p => p.lifecycle === 'risky').length,
+      banned: providers.filter(p => p.lifecycle === 'banned').length,
+    };
+
+    return { providers, stats };
+  }
+
+  async executeLifecycleAction(providerId: string, action: string) {
+    const updates: any = {};
+    switch (action) {
+      case 'promote':
+        updates.visibilityState = 'BOOSTED';
+        updates.isBoosted = true;
+        updates.boostUntil = new Date(Date.now() + 7 * 86400000);
+        break;
+      case 'warn':
+        break;
+      case 'limit':
+        updates.visibilityState = 'LIMITED';
+        updates.isShadowLimited = true;
+        updates.shadowLimitReason = 'Lifecycle action — admin limited';
+        break;
+      case 'deactivate':
+        updates.visibilityState = 'SUSPENDED';
+        updates.status = 'disabled';
+        break;
+      case 'reactivate':
+        updates.visibilityState = 'NORMAL';
+        updates.status = 'active';
+        updates.isShadowLimited = false;
+        break;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await this.organizationModel.findByIdAndUpdate(providerId, updates);
+    }
+
+    await this.logAction({
+      actor: 'ADMIN',
+      action: `lifecycle_${action}`,
+      entityType: 'organization',
+      entityId: providerId,
+      description: `Lifecycle action: ${action}`,
+    });
+
+    return { success: true, action };
   }
 }

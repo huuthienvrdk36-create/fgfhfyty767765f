@@ -27,6 +27,14 @@ import ReportsPage from './pages/ReportsPage';
 import FeatureFlagsPage from './pages/FeatureFlagsPage';
 import SuggestionsPage from './pages/SuggestionsPage';
 import ReputationPage from './pages/ReputationPage';
+import SupplyQualityPage from './pages/SupplyQualityPage';
+import ZoneControlPage from './pages/ZoneControlPage';
+import EconomyControlPage from './pages/EconomyControlPage';
+import DistributionControlPage from './pages/DistributionControlPage';
+import IncidentControlPage from './pages/IncidentControlPage';
+import DemandControlPage from './pages/DemandControlPage';
+import SystemHealthPage from './pages/SystemHealthPage';
+import ProviderLifecyclePage from './pages/ProviderLifecyclePage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading, token } = useAuthStore();
@@ -87,6 +95,14 @@ export default function App() {
         <Route path="feature-flags" element={<FeatureFlagsPage />} />
         <Route path="suggestions" element={<SuggestionsPage />} />
         <Route path="providers/:providerId/reputation" element={<ReputationPage />} />
+        <Route path="supply-quality" element={<SupplyQualityPage />} />
+        <Route path="zone-control" element={<ZoneControlPage />} />
+        <Route path="economy" element={<EconomyControlPage />} />
+        <Route path="distribution-control" element={<DistributionControlPage />} />
+        <Route path="incidents" element={<IncidentControlPage />} />
+        <Route path="demand-control" element={<DemandControlPage />} />
+        <Route path="system-health" element={<SystemHealthPage />} />
+        <Route path="providers/lifecycle" element={<ProviderLifecyclePage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

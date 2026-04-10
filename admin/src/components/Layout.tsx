@@ -3,7 +3,8 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Building2, Calendar, CreditCard, 
   MessageSquare, Star, FileText, Settings, LogOut, MapPin, Inbox,
-  Radio, Package, UserCircle, Globe, Cpu, History, Bell, BarChart3, Search, Zap, AlertTriangle, Wifi, WifiOff, Flag, Lightbulb, Shield
+  Radio, Package, UserCircle, Globe, Cpu, History, Bell, BarChart3, Search, Zap, AlertTriangle, Wifi, WifiOff, Flag, Lightbulb, Shield,
+  Activity, DollarSign, Sliders, TrendingUp, UserCog
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import GlobalSearchModal from './GlobalSearchModal';
@@ -20,6 +21,19 @@ const navGroups = [
     ]
   },
   {
+    label: 'GOVERNANCE',
+    items: [
+      { to: '/supply-quality', icon: Shield, label: 'Supply Quality' },
+      { to: '/zone-control', icon: MapPin, label: 'Zone Control' },
+      { to: '/economy', icon: DollarSign, label: 'Economy' },
+      { to: '/distribution-control', icon: Sliders, label: 'Distribution' },
+      { to: '/demand-control', icon: TrendingUp, label: 'Demand Control' },
+      { to: '/incidents', icon: AlertTriangle, label: 'Incidents' },
+      { to: '/system-health', icon: Activity, label: 'System Health' },
+      { to: '/providers/lifecycle', icon: UserCog, label: 'Lifecycle' },
+    ]
+  },
+  {
     label: 'OPERATIONS',
     items: [
       { to: '/market-control', icon: Cpu, label: 'Market Control' },
@@ -33,7 +47,6 @@ const navGroups = [
   {
     label: 'CONTROL',
     items: [
-      { to: '/market-control', icon: Cpu, label: 'Market Control' },
       { to: '/feature-flags', icon: Flag, label: 'Feature Flags' },
       { to: '/suggestions', icon: Lightbulb, label: 'Smart Actions' },
       { to: '/notifications', icon: Bell, label: 'Уведомления' },
