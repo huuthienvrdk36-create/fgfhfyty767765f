@@ -1,0 +1,74 @@
+{
+  "theme": "Light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast)",
+  "emotional_tone": "Authoritative, Clear, Trustworthy, Reassuring",
+  "domain": "Auto-service marketplace (Uber-like), Mobile Web App",
+  "colors": {
+    "primary": "#FF5C00",
+    "primary_hover": "#E65300",
+    "background": "#F4F4F5",
+    "surface": "#FFFFFF",
+    "text_primary": "#09090B",
+    "text_secondary": "#71717A",
+    "border": "#E4E4E7",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "error": "#EF4444",
+    "map_route": "#000000"
+  },
+  "typography": {
+    "headings": "Cabinet Grotesk",
+    "body": "Work Sans",
+    "monospace": "JetBrains Mono",
+    "rules": {
+      "h1": "text-4xl tracking-tight font-bold text-gray-900",
+      "h2": "text-2xl tracking-tight font-semibold text-gray-900",
+      "labels": "text-xs font-semibold uppercase tracking-[0.15em] text-gray-500",
+      "eta_numbers": "text-5xl font-black tracking-tighter text-gray-900 font-mono",
+      "license_plate": "font-mono font-bold tracking-widest bg-gray-100 text-gray-900 px-3 py-1 rounded-md border border-gray-200"
+    }
+  },
+  "spacing_and_layout": {
+    "strategy": "Mobile-first, Dense Data with generous padding for touch targets.",
+    "map_container": "absolute inset-0 z-0 bg-gray-100 w-full h-screen overflow-hidden",
+    "top_pill": "absolute top-6 left-6 right-6 z-10 px-4 py-3 bg-white/90 backdrop-blur-xl border border-black/5 rounded-2xl shadow-lg flex items-center justify-between",
+    "bottom_sheet": "absolute bottom-0 w-full z-20 bg-white rounded-t-3xl pt-2 pb-8 px-6 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.1)] flex flex-col gap-6 transform transition-transform duration-300",
+    "sheet_handle": "w-12 h-1.5 bg-gray-200 rounded-full mx-auto cursor-grab active:cursor-grabbing",
+    "provider_info_grid": "flex items-center gap-4 py-4 border-b border-gray-100",
+    "actions_grid": "grid grid-cols-2 gap-3"
+  },
+  "components_and_interactions": {
+    "Map": "Use 'lucide-react' Map or a stylized div overlay representing a map background if actual map (e.g. Mapbox) is not implemented. MVP: Use a static pattern or grid background (`bg-gray-100` with `bg-[url(...)]` subtle dot pattern). Add an SVG route line (black stroke).",
+    "Markers": {
+      "Client": "Pulsing blue or black dot (`w-4 h-4 bg-black rounded-full shadow-[0_0_0_8px_rgba(0,0,0,0.1)] animate-pulse`).",
+      "Provider": "A floating white card with a subtle shadow and the 'lucide-react' Truck icon inside (`bg-white p-2 rounded-full shadow-lg border border-gray-100`). Animate the position using framer-motion to slide smoothly along the SVG route."
+    },
+    "Status_State_Machine": {
+      "confirmed": "Provider assigned. ETA: 20 mins. Badge: gray/neutral.",
+      "on_route": "Driving to location. ETA: decreasing. Badge: blue/orange.",
+      "arrived_soon": "Distance < 200m. Status: 'Almost there!'. Accent color shifts to #FF5C00 (Primary). Show prominent warning banner.",
+      "auto_arrived": "Distance < 100m. Status: 'Arrived'. Accent color shifts to #10B981 (Success). ETA changes to '0 min'.",
+      "delay_handling": "If ETA increases, show warning pill: 'Traffic delay: +5 mins' in #F59E0B."
+    },
+    "Trust_Signals": "Badge reading 'Verified Pro', '⭐ 4.9 (854 jobs)'. Use `lucide-react` 'ShieldCheck' icon.",
+    "Buttons": {
+      "Primary": "w-full py-4 bg-black hover:bg-gray-900 text-white font-bold rounded-xl transition-colors flex items-center justify-center gap-2",
+      "Secondary": "w-full py-4 bg-gray-100 hover:bg-gray-200 text-gray-900 font-bold rounded-xl transition-colors flex items-center justify-center gap-2",
+      "Emergency": "w-full py-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors"
+    }
+  },
+  "media_assets": {
+    "mechanic_avatar": "https://images.unsplash.com/photo-1586447751596-6c2050a0d335?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBtZWNoYW5pYyUyMHBvcnRyYWl0fGVufDB8fHx8MTc3NTczNjU0OHww&ixlib=rb-4.1.0&q=85",
+    "map_placeholder_bg": "data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20.5V18H0v-2h20v-2h2v2h20v2H22v2.5h20v2H22v2h-2v-2H0v-2h20z' fill='%239C92AC' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E"
+  },
+  "instructions_to_main_agent": [
+    "1. Setup standard tailwind config with colors defined above.",
+    "2. Build the main layout: Absolute full-screen Map container (z-0), fixed top Status Pill (z-10), fixed Bottom Sheet (z-20).",
+    "3. Use Framer Motion for animating the Provider Marker along an SVG path (simulating a live ride route) and for the bottom sheet drag interactions.",
+    "4. Implement a robust simulation interval (e.g. `useEffect` with `setInterval`) to cycle through statuses: confirmed -> on_route -> almost_there -> arrived. Update ETA, Distance, and Marker position smoothly.",
+    "5. Format the Provider Info carefully: Big bold ETA (e.g., '12 min'), Avatar, Name, Rating, and Vehicle Plate (e.g. 'XYZ 987' in monospace).",
+    "6. Add a clear Call button and Cancel button. Render anomaly/delay handling (e.g., simulated traffic delay) after a few seconds of 'on_route'.",
+    "7. DO NOT use generic fonts like Inter. Use Cabinet Grotesk for headings and Work Sans for body, JetBrains Mono for numbers/plates.",
+    "8. Ensure every actionable item has a `data-testid` attribute (e.g., `data-testid='call-provider-button'`)."
+  ]
+}
