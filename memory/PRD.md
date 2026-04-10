@@ -137,6 +137,62 @@ Clone the Auto Platform project (Uber for Services marketplace) from GitHub and 
 - Connection status indicator (Wifi icon)
 - Quick Actions button with ⌘J shortcut
 
+### P3 — Система оптимизации рынка (Implemented April 10, 2026)
+
+#### 1. Feature Flags + Experiments
+- **Page**: `/feature-flags`
+- **Feature Flags**:
+  - Toggle enable/disable instantly
+  - Rollout percentage control (0-100%)
+  - Conditions: cities, tiers, minScore
+  - Types: release, experiment, ops
+  - CRUD operations with audit logging
+- **Experiments** (A/B Testing):
+  - Multiple variants with traffic split
+  - Success metrics: conversion_rate, gmv, response_time, completion_rate
+  - Statuses: draft, active, paused, completed
+- **APIs**:
+  - `GET/POST /api/admin/feature-flags`
+  - `PATCH /api/admin/feature-flags/:id`
+  - `POST /api/admin/feature-flags/:key/toggle`
+  - `GET/POST /api/admin/experiments`
+  - `PATCH /api/admin/experiments/:id/status`
+
+#### 2. Auto-Suggested Actions
+- **Page**: `/suggestions`
+- **Decision Engine**: System analyzes data and recommends actions
+- **Suggestion Types**:
+  - `provider_low_performance` - мастер с низким score
+  - `overdue_dispute` - просроченный спор (>48h)
+  - `stuck_booking` - завис заказ (>2h без прогресса)
+  - `quote_no_response` - заявка без ответов (>30min)
+  - `inactive_top_provider` - неактивный gold/platinum мастер
+- **Severity levels**: critical, warning, info
+- **One-click actions**: limit, boost, send push, reassign, escalate
+- **APIs**:
+  - `GET /api/admin/suggestions`
+  - `POST /api/admin/suggestions/:id/execute`
+
+#### 3. Reputation Control
+- **Page**: `/providers/:providerId/reputation`
+- **Features**:
+  - View/adjust provider rating with reason
+  - Hide reviews with reason
+  - Add trust flags (verified_documents, premium_partner, etc.)
+  - Penalize provider (warning, score_reduction, suspension)
+  - Full reputation history timeline
+- **APIs**:
+  - `GET /api/admin/providers/:id/reputation`
+  - `POST /api/admin/providers/:id/reputation/rating`
+  - `POST /api/admin/reviews/:id/hide`
+  - `POST /api/admin/providers/:id/reputation/trust-flag`
+  - `POST /api/admin/providers/:id/reputation/penalize`
+
+## DB Models (P3)
+- `feature_flags`: key, name, enabled, rollout, conditions, type
+- `experiments`: name, featureFlagKey, variants, metric, status, results
+- `reputation_actions`: providerId, actionType, oldValue, newValue, reason
+
 ## Pending Tasks (Backlog)
 
 ### P2 — Strength Features
