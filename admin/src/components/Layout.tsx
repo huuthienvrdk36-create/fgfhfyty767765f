@@ -3,44 +3,82 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Building2, Calendar, CreditCard, 
   MessageSquare, Star, FileText, Settings, LogOut, MapPin, Inbox,
-  Radio, Package, UserCircle, Globe, Cpu, History, Bell, BarChart3, Search
+  Radio, Package, UserCircle, Globe, Cpu, History, Bell, BarChart3, Search, Zap, AlertTriangle, Wifi, WifiOff
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import GlobalSearchModal from './GlobalSearchModal';
+import QuickActionsPanel from './QuickActionsPanel';
+import { useRealtimeConnection, useAlerts } from '../hooks/useRealtime';
 
-const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Дашборд' },
-  { to: '/live-monitor', icon: Radio, label: 'Live Monitor' },
-  { to: '/geo-ops', icon: Globe, label: 'Geo Ops (City)' },
-  { to: '/market-control', icon: Cpu, label: 'Market Control' },
-  { to: '/providers', icon: Building2, label: 'Мастера (Control)' },
-  { to: '/customers', icon: UserCircle, label: 'Клиенты' },
-  { to: '/services', icon: Package, label: 'Услуги' },
-  { to: '/map', icon: MapPin, label: 'Карта' },
-  { to: '/provider-inbox', icon: Inbox, label: 'Provider Inbox' },
-  { to: '/bookings', icon: Calendar, label: 'Бронирования' },
-  { to: '/quotes', icon: FileText, label: 'Заявки' },
-  { to: '/payments', icon: CreditCard, label: 'Платежи' },
-  { to: '/disputes', icon: MessageSquare, label: 'Споры' },
-  { to: '/reviews', icon: Star, label: 'Отзывы' },
-  { to: '/notifications', icon: Bell, label: 'Уведомления' },
-  { to: '/reports', icon: BarChart3, label: 'Отчёты' },
-  { to: '/audit-log', icon: History, label: 'Audit Log' },
-  { to: '/users', icon: Users, label: 'Пользователи' },
-  { to: '/organizations', icon: Building2, label: 'Организации' },
-  { to: '/settings', icon: Settings, label: 'Настройки' },
+const navGroups = [
+  {
+    label: 'CORE',
+    items: [
+      { to: '/', icon: LayoutDashboard, label: 'Дашборд' },
+      { to: '/live-monitor', icon: Radio, label: 'Live Monitor' },
+      { to: '/geo-ops', icon: Globe, label: 'Geo Ops' },
+    ]
+  },
+  {
+    label: 'OPERATIONS',
+    items: [
+      { to: '/market-control', icon: Cpu, label: 'Market Control' },
+      { to: '/providers', icon: Building2, label: 'Мастера' },
+      { to: '/provider-inbox', icon: Inbox, label: 'Provider Inbox' },
+      { to: '/bookings', icon: Calendar, label: 'Бронирования' },
+      { to: '/quotes', icon: FileText, label: 'Заявки' },
+      { to: '/customers', icon: UserCircle, label: 'Клиенты' },
+    ]
+  },
+  {
+    label: 'CONTROL',
+    items: [
+      { to: '/notifications', icon: Bell, label: 'Уведомления' },
+      { to: '/payments', icon: CreditCard, label: 'Платежи' },
+      { to: '/disputes', icon: MessageSquare, label: 'Споры' },
+      { to: '/reviews', icon: Star, label: 'Отзывы' },
+    ]
+  },
+  {
+    label: 'ANALYTICS',
+    items: [
+      { to: '/reports', icon: BarChart3, label: 'Отчёты' },
+      { to: '/audit-log', icon: History, label: 'Audit Log' },
+    ]
+  },
+  {
+    label: 'SYSTEM',
+    items: [
+      { to: '/users', icon: Users, label: 'Пользователи' },
+      { to: '/organizations', icon: Building2, label: 'Организации' },
+      { to: '/services', icon: Package, label: 'Услуги' },
+      { to: '/map', icon: MapPin, label: 'Карта' },
+      { to: '/settings', icon: Settings, label: 'Настройки' },
+    ]
+  },
 ];
 
 export default function Layout() {
   const { user, logout } = useAuthStore();
   const [searchOpen, setSearchOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const { isConnected } = useRealtimeConnection();
+  const { alerts } = useAlerts();
+  
+  const criticalAlerts = alerts.filter(a => a.type === 'critical').length;
 
-  // Keyboard shortcut for search
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setSearchOpen(true);
+        setActionsOpen(false);
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault();
+        setActionsOpen(true);
+        setSearchOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -52,12 +90,24 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-64 bg-slate-800 border-r border-slate-700 flex flex-col">
         <div className="p-4 border-b border-slate-700">
-          <h1 className="text-xl font-bold text-white">Auto Platform</h1>
-          <p className="text-sm text-slate-400">Админ панель</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-bold text-white">Auto Platform</h1>
+              <p className="text-sm text-slate-400">Control Center</p>
+            </div>
+            {/* Connection Status */}
+            <div className={`p-1.5 rounded-full ${isConnected ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
+              {isConnected ? (
+                <Wifi className="w-4 h-4 text-green-400" />
+              ) : (
+                <WifiOff className="w-4 h-4 text-red-400" />
+              )}
+            </div>
+          </div>
         </div>
         
-        {/* Global Search Button */}
-        <div className="p-3">
+        {/* Search & Quick Actions */}
+        <div className="p-3 space-y-2">
           <button
             onClick={() => setSearchOpen(true)}
             className="w-full flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-400 transition-colors"
@@ -66,24 +116,51 @@ export default function Layout() {
             <span className="flex-1 text-left text-sm">Поиск...</span>
             <kbd className="px-1.5 py-0.5 bg-slate-600 rounded text-xs">⌘K</kbd>
           </button>
+          <button
+            onClick={() => setActionsOpen(true)}
+            className="w-full flex items-center gap-2 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-400 transition-colors"
+          >
+            <Zap className="w-4 h-4" />
+            <span className="flex-1 text-left text-sm font-medium">Quick Actions</span>
+            <kbd className="px-1.5 py-0.5 bg-amber-500/20 rounded text-xs">⌘J</kbd>
+          </button>
         </div>
+
+        {/* Critical Alerts Badge */}
+        {criticalAlerts > 0 && (
+          <div className="mx-3 mb-2 px-3 py-2 bg-red-500/20 border border-red-500/30 rounded-lg">
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="text-sm font-medium">{criticalAlerts} Critical Alerts</span>
+            </div>
+          </div>
+        )}
         
-        <nav className="flex-1 p-4 space-y-1 overflow-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                  isActive 
-                    ? 'bg-primary text-white' 
-                    : 'text-slate-300 hover:bg-slate-700'
-                }`
-              }
-            >
-              <item.icon size={20} />
-              <span>{item.label}</span>
-            </NavLink>
+        <nav className="flex-1 p-2 space-y-4 overflow-auto">
+          {navGroups.map((group) => (
+            <div key={group.label}>
+              <p className="px-3 py-1 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+                        isActive 
+                          ? 'bg-primary text-white' 
+                          : 'text-slate-300 hover:bg-slate-700'
+                      }`
+                    }
+                  >
+                    <item.icon size={18} />
+                    <span>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
@@ -98,7 +175,7 @@ export default function Layout() {
               <p className="text-sm font-medium text-white truncate">
                 {user?.firstName || user?.email}
               </p>
-              <p className="text-xs text-slate-400">Администратор</p>
+              <p className="text-xs text-slate-400">Оператор</p>
             </div>
           </div>
           <button
@@ -118,6 +195,9 @@ export default function Layout() {
 
       {/* Global Search Modal */}
       <GlobalSearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+      
+      {/* Quick Actions Panel */}
+      <QuickActionsPanel isOpen={actionsOpen} onClose={() => setActionsOpen(false)} />
     </div>
   );
 }

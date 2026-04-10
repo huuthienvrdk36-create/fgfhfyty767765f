@@ -4,7 +4,7 @@ import { adminAPI } from '../services/api';
 import { 
   Building2, Search, Star, TrendingUp, TrendingDown, 
   MapPin, Clock, DollarSign, AlertTriangle, CheckCircle,
-  Eye, EyeOff, Zap, Shield, Filter, ChevronDown
+  Eye, EyeOff, Zap, Shield, Filter, ChevronDown, Send, MoreHorizontal, Power
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -84,6 +84,8 @@ export default function ProvidersPage() {
     online: 0,
     problems: 0,
   });
+  const [selectedProviders, setSelectedProviders] = useState<string[]>([]);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const limit = 20;
 
   const fetchProviders = async () => {
@@ -305,11 +307,82 @@ export default function ProvidersPage() {
         </div>
       )}
 
+      {/* Bulk Actions Bar */}
+      {selectedProviders.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 shadow-xl flex items-center gap-4 z-50">
+          <span className="text-white font-medium">{selectedProviders.length} выбрано</span>
+          <div className="h-6 w-px bg-slate-600" />
+          <button
+            onClick={async () => {
+              setActionLoading('boost');
+              for (const id of selectedProviders) {
+                try {
+                  await adminAPI.updateProviderVisibility(id, 'boosted');
+                } catch {}
+              }
+              setActionLoading(null);
+              setSelectedProviders([]);
+              fetchProviders();
+            }}
+            disabled={actionLoading === 'boost'}
+            className="flex items-center gap-2 px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-lg text-sm"
+          >
+            <Zap className="w-4 h-4" />
+            Boost All
+          </button>
+          <button
+            onClick={async () => {
+              setActionLoading('limit');
+              for (const id of selectedProviders) {
+                try {
+                  await adminAPI.updateProviderVisibility(id, 'limited');
+                } catch {}
+              }
+              setActionLoading(null);
+              setSelectedProviders([]);
+              fetchProviders();
+            }}
+            disabled={actionLoading === 'limit'}
+            className="flex items-center gap-2 px-3 py-1.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-sm"
+          >
+            <EyeOff className="w-4 h-4" />
+            Limit All
+          </button>
+          <button
+            onClick={() => navigate(`/notifications?providers=${selectedProviders.join(',')}`)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-400 rounded-lg text-sm"
+          >
+            <Send className="w-4 h-4" />
+            Send Push
+          </button>
+          <button
+            onClick={() => setSelectedProviders([])}
+            className="text-slate-400 hover:text-white text-sm"
+          >
+            Отмена
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
         <table className="w-full">
           <thead className="bg-slate-700/50">
             <tr>
+              <th className="w-10 px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={selectedProviders.length === filteredProviders.length && filteredProviders.length > 0}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedProviders(filteredProviders.map(p => p._id));
+                    } else {
+                      setSelectedProviders([]);
+                    }
+                  }}
+                  className="rounded bg-slate-700 border-slate-600 text-primary"
+                />
+              </th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Мастер</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Тип</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Рейтинг</th>
@@ -318,6 +391,7 @@ export default function ProvidersPage() {
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Статус</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Visibility</th>
               <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Доход</th>
+              <th className="text-left px-4 py-3 text-sm font-medium text-slate-300">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-700">
@@ -325,7 +399,7 @@ export default function ProvidersPage() {
               <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-400">Загрузка...</td></tr>
             ) : filteredProviders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center">
+                <td colSpan={10} className="px-4 py-12 text-center">
                   <Building2 size={48} className="text-slate-600 mx-auto mb-4" />
                   <p className="text-slate-400">Мастера не найдены</p>
                 </td>
@@ -340,10 +414,23 @@ export default function ProvidersPage() {
                 return (
                   <tr 
                     key={provider._id} 
-                    className="hover:bg-slate-700/30 cursor-pointer"
-                    onClick={() => navigate(`/providers/${provider._id}`)}
+                    className={`hover:bg-slate-700/30 cursor-pointer ${selectedProviders.includes(provider._id) ? 'bg-slate-700/50' : ''}`}
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedProviders.includes(provider._id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedProviders([...selectedProviders, provider._id]);
+                          } else {
+                            setSelectedProviders(selectedProviders.filter(id => id !== provider._id));
+                          }
+                        }}
+                        className="rounded bg-slate-700 border-slate-600 text-primary"
+                      />
+                    </td>
+                    <td className="px-4 py-3" onClick={() => navigate(`/providers/${provider._id}`)}>
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
@@ -399,6 +486,35 @@ export default function ProvidersPage() {
                       <div>
                         <span className="text-white font-medium">₴{(provider.earnings || 0).toLocaleString()}</span>
                         <p className="text-slate-500 text-xs">{provider.commission}% комиссия</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            adminAPI.updateProviderVisibility(provider._id, 'boosted').then(() => fetchProviders());
+                          }}
+                          className="p-1.5 hover:bg-green-500/20 rounded text-green-400"
+                          title="Boost"
+                        >
+                          <Zap size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            adminAPI.updateProviderVisibility(provider._id, 'limited').then(() => fetchProviders());
+                          }}
+                          className="p-1.5 hover:bg-orange-500/20 rounded text-orange-400"
+                          title="Limit"
+                        >
+                          <EyeOff size={14} />
+                        </button>
+                        <button
+                          onClick={() => navigate(`/notifications?provider=${provider._id}`)}
+                          className="p-1.5 hover:bg-indigo-500/20 rounded text-indigo-400"
+                          title="Send Push"
+                        >
+                          <Send size={14} />
+                        </button>
                       </div>
                     </td>
                   </tr>

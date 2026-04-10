@@ -207,12 +207,6 @@ export const adminAPI = {
   getFeatureFlags: () => api.get('/admin/config/features'),
   setFeatureFlag: (flag: string, enabled: boolean) => api.post('/admin/config/features', { flag, enabled }),
   
-  // Notifications
-  getNotificationTemplates: () => api.get('/admin/notifications/templates'),
-  updateNotificationTemplate: (id: string, data: any) => api.patch(`/admin/notifications/templates/${id}`, data),
-  sendBulkNotification: (data: { userIds?: string[]; providerIds?: string[]; type: string; title: string; message: string }) =>
-    api.post('/admin/notifications/bulk', data),
-  
   // Audit Log
   getAuditLog: (params?: { userId?: string; action?: string; entityType?: string; dateFrom?: string; dateTo?: string; limit?: number; skip?: number }) =>
     api.get('/admin/audit-log', { params }),

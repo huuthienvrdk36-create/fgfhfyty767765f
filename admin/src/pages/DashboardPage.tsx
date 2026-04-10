@@ -71,7 +71,7 @@ const StatCard = ({ icon: Icon, label, value, subValue, trend, color, onClick }:
   </div>
 );
 
-const AlertCard = ({ alert }: { alert: Alert }) => {
+const AlertCard = ({ alert, onAction }: { alert: Alert; onAction?: (action: string, alertId: string) => void }) => {
   const colors = {
     critical: 'border-red-500/50 bg-red-500/10',
     warning: 'border-yellow-500/50 bg-yellow-500/10',
@@ -84,22 +84,58 @@ const AlertCard = ({ alert }: { alert: Alert }) => {
   };
   const Icon = icons[alert.type];
   
+  // Define quick actions based on alert type
+  const getAlertActions = (alert: Alert) => {
+    if (alert.title.includes('supply') || alert.title.includes('мастер')) {
+      return [
+        { label: 'Boost Supply', action: 'boost_supply', color: 'bg-green-500/20 text-green-400 hover:bg-green-500/30' },
+        { label: 'Send Push', action: 'send_push', color: 'bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500/30' },
+      ];
+    }
+    if (alert.title.includes('SLA') || alert.title.includes('overdue')) {
+      return [
+        { label: 'Reassign', action: 'reassign', color: 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30' },
+        { label: 'Escalate', action: 'escalate', color: 'bg-red-500/20 text-red-400 hover:bg-red-500/30' },
+      ];
+    }
+    if (alert.title.includes('спор') || alert.title.includes('dispute')) {
+      return [
+        { label: 'View', action: 'view_dispute', color: 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30' },
+      ];
+    }
+    return [];
+  };
+  
+  const actions = getAlertActions(alert);
+  
   return (
-    <div className={`p-3 rounded-lg border ${colors[alert.type]} flex items-start gap-3`}>
-      <Icon size={18} className={alert.type === 'critical' ? 'text-red-400' : alert.type === 'warning' ? 'text-yellow-400' : 'text-blue-400'} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <p className="text-white text-sm font-medium">{alert.title}</p>
-          {alert.count && (
-            <span className="px-1.5 py-0.5 bg-slate-700 rounded text-xs text-white">{alert.count}</span>
-          )}
+    <div className={`p-3 rounded-lg border ${colors[alert.type]}`}>
+      <div className="flex items-start gap-3">
+        <Icon size={18} className={alert.type === 'critical' ? 'text-red-400' : alert.type === 'warning' ? 'text-yellow-400' : 'text-blue-400'} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-white text-sm font-medium">{alert.title}</p>
+            {alert.count && (
+              <span className="px-1.5 py-0.5 bg-slate-700 rounded text-xs text-white">{alert.count}</span>
+            )}
+          </div>
+          <p className="text-slate-400 text-xs mt-0.5">{alert.description}</p>
         </div>
-        <p className="text-slate-400 text-xs mt-0.5">{alert.description}</p>
       </div>
-      {alert.action && (
-        <button className="text-xs text-primary hover:underline whitespace-nowrap">
-          {alert.action} <ArrowRight size={12} className="inline" />
-        </button>
+      
+      {/* Quick Action Buttons */}
+      {actions.length > 0 && (
+        <div className="flex gap-2 mt-3 ml-7">
+          {actions.map((action, i) => (
+            <button
+              key={i}
+              onClick={() => onAction?.(action.action, alert.id)}
+              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${action.color}`}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, X, User, Building2, Calendar, FileText, ArrowRight, Command } from 'lucide-react';
+import { Search, X, User, Building2, Calendar, FileText, ArrowRight, Command, Zap, Eye, EyeOff, Send, Phone, RefreshCw } from 'lucide-react';
 import { adminAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,6 +11,13 @@ interface SearchResult {
   status?: string;
   role?: string;
   url: string;
+}
+
+interface QuickAction {
+  label: string;
+  icon: any;
+  color: string;
+  action: () => void;
 }
 
 const typeIcons: Record<string, any> = {
@@ -32,6 +39,8 @@ export default function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showActions, setShowActions] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -135,35 +144,109 @@ export default function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean
                 const Icon = typeIcons[result.type] || FileText;
                 const colorClass = typeColors[result.type] || 'bg-slate-600 text-slate-300';
                 
+                // Get actions for this result type
+                const getActionsForResult = (r: SearchResult): QuickAction[] => {
+                  if (r.type === 'provider') {
+                    return [
+                      { label: 'Boost', icon: Zap, color: 'text-green-400', action: async () => {
+                        setActionLoading(`boost-${r.id}`);
+                        try {
+                          await adminAPI.updateProviderVisibility(r.id, 'boosted');
+                        } catch {}
+                        setActionLoading(null);
+                      }},
+                      { label: 'Limit', icon: EyeOff, color: 'text-orange-400', action: async () => {
+                        setActionLoading(`limit-${r.id}`);
+                        try {
+                          await adminAPI.updateProviderVisibility(r.id, 'limited');
+                        } catch {}
+                        setActionLoading(null);
+                      }},
+                      { label: 'Push', icon: Send, color: 'text-indigo-400', action: () => {
+                        navigate(`/notifications?provider=${r.id}`);
+                        onClose();
+                      }},
+                    ];
+                  }
+                  if (r.type === 'booking') {
+                    return [
+                      { label: 'Reassign', icon: RefreshCw, color: 'text-cyan-400', action: () => {
+                        navigate(`/bookings?id=${r.id}&action=reassign`);
+                        onClose();
+                      }},
+                      { label: 'Call', icon: Phone, color: 'text-green-400', action: () => {
+                        // Would open phone dialer
+                        alert('Звонок мастеру...');
+                      }},
+                    ];
+                  }
+                  if (r.type === 'user') {
+                    return [
+                      { label: 'Push', icon: Send, color: 'text-indigo-400', action: () => {
+                        navigate(`/notifications?user=${r.id}`);
+                        onClose();
+                      }},
+                    ];
+                  }
+                  return [];
+                };
+                
+                const actions = getActionsForResult(result);
+                
                 return (
                   <div
                     key={`${result.type}-${result.id}`}
-                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                    className={`group px-4 py-3 cursor-pointer transition-colors ${
                       index === selectedIndex ? 'bg-slate-700' : 'hover:bg-slate-750'
                     }`}
-                    onClick={() => handleSelect(result)}
-                    onMouseEnter={() => setSelectedIndex(index)}
+                    onMouseEnter={() => {
+                      setSelectedIndex(index);
+                      setShowActions(result.id);
+                    }}
+                    onMouseLeave={() => setShowActions(null)}
                   >
-                    <div className={`p-2 rounded-lg ${colorClass}`}>
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-medium truncate">{result.title}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs ${colorClass}`}>
-                          {result.type}
-                        </span>
-                        {result.status && (
-                          <span className="px-2 py-0.5 bg-slate-600 rounded text-xs text-slate-300">
-                            {result.status}
-                          </span>
-                        )}
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${colorClass}`}>
+                        <Icon className="w-4 h-4" />
                       </div>
-                      <p className="text-sm text-slate-400 truncate">{result.subtitle}</p>
+                      <div className="flex-1 min-w-0" onClick={() => handleSelect(result)}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-medium truncate">{result.title}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs ${colorClass}`}>
+                            {result.type}
+                          </span>
+                          {result.status && (
+                            <span className="px-2 py-0.5 bg-slate-600 rounded text-xs text-slate-300">
+                              {result.status}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-400 truncate">{result.subtitle}</p>
+                      </div>
+                      
+                      {/* Inline Actions */}
+                      {showActions === result.id && actions.length > 0 ? (
+                        <div className="flex items-center gap-1">
+                          {actions.map((action, i) => (
+                            <button
+                              key={i}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                action.action();
+                              }}
+                              disabled={actionLoading !== null}
+                              className={`flex items-center gap-1 px-2 py-1 bg-slate-600 hover:bg-slate-500 rounded text-xs ${action.color} transition-colors`}
+                              title={action.label}
+                            >
+                              <action.icon className="w-3 h-3" />
+                              <span>{action.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <ArrowRight className="w-4 h-4 text-slate-500 opacity-0 group-hover:opacity-100" />
+                      )}
                     </div>
-                    {index === selectedIndex && (
-                      <ArrowRight className="w-4 h-4 text-slate-500" />
-                    )}
                   </div>
                 );
               })}
@@ -189,12 +272,12 @@ export default function GlobalSearchModal({ isOpen, onClose }: { isOpen: boolean
         <div className="px-4 py-2 border-t border-slate-700 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-slate-700 rounded">↑↓</kbd>
-              навигация
+              <kbd className="px-1.5 py-0.5 bg-slate-700 rounded">Tab</kbd>
+              действия
             </span>
             <span className="flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 bg-slate-700 rounded">Enter</kbd>
-              выбрать
+              открыть
             </span>
           </div>
           <span>{results.length} результатов</span>
